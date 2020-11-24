@@ -54,6 +54,12 @@ int main()
     return 0;
 }
 
+/*damn this idiotic GitHub and Visual Studio*/
+
+void gibberish(); //just to see some changes, damn it
+
+// I really hate this damn program and GitHub
+
 /*int main()
 {
     GLFWwindow* window;
