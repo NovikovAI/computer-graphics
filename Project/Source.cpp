@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <cmath>
+
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -17,21 +19,27 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 // Shaders
 const GLchar* vertexShaderSource = "#version 330 core\n"
 "layout (location = 0) in vec3 position;\n"
+"out vec4 vertexColor;\n"
 "void main()\n"
 "{\n"
 "gl_Position = vec4(position.x, position.y, position.z, 1.0);\n"
+"vertexColor = vec4(0.5f, 0.0f, 0.0f, 1.0f);\n"
 "}\0";
+
 const GLchar* fragmentShaderSource1 = "#version 330 core\n"
 "out vec4 color;\n"
+"uniform vec4 ourColor1;\n"
 "void main()\n"
 "{\n"
-"color = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+"color = ourColor1;\n"
 "}\n\0";
+
 const GLchar* fragmentShaderSource2 = "#version 330 core\n"
 "out vec4 color;\n"
+"uniform vec4 ourColor2;\n"
 "void main()\n"
 "{\n"
-"color = vec4(1.0f, 1.0f, 0.0f, 1.0f);\n"
+"color = ourColor2;\n"
 "}\n\0";
 
 int main()
@@ -98,7 +106,7 @@ int main()
     if (!success)
     {
         glGetShaderInfoLog(fragmentShader1, 512, NULL, infoLog);
-        printf("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n%s\n", infoLog);
+        printf("ERROR::SHADER::FRAGMENT1::COMPILATION_FAILED\n%s\n", infoLog);
     }
 
     //sane process for the second one
@@ -109,7 +117,7 @@ int main()
     if (!success)
     {
         glGetShaderInfoLog(fragmentShader2, 512, NULL, infoLog);
-        printf("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n%s\n",infoLog);
+        printf("ERROR::SHADER::FRAGMENT2::COMPILATION_FAILED\n%s\n",infoLog);
     }
 
     // Link shaders
@@ -141,10 +149,10 @@ int main()
 
     // Set up vertex data (and buffer(s)) and attribute pointers
     GLfloat vertices[] = {
-         0.5f,  0.5f, 0.0f,  // Top Right
+         0.5f,  0.5f, 0.0f, // Top Right
          0.5f, -0.5f, 0.0f,  // Bottom Right
         -0.5f, -0.5f, 0.0f,  // Bottom Left
-        -0.5f,  0.5f, 0.0f   // Top Left 
+        -0.5f,  0.5f, 0.0f  // Top Left 
     };
     GLuint indices[] = {  // Note that we start from 0!
         0, 1, 3,  // First Triangle
@@ -186,13 +194,27 @@ int main()
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        //time based colors
+        GLfloat timeValue = glfwGetTime();
+        GLfloat greenValue = (sin(timeValue) / 2) + 0.5;
+        GLfloat redValue = (cos(timeValue) / 2) + 0.5;
+
         // Draw our first triangle
         glUseProgram(shaderProgram);
+
+        GLint vertexColorLocation1 = glGetUniformLocation(shaderProgram, "ourColor1");
+        glUniform4f(vertexColorLocation1, 0.0f, greenValue, 0.0f, 1.0f);
+
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
+        
         //second triangle
         glUseProgram(shaderProgram2);
+        
+        GLint vertexColorLocation2 = glGetUniformLocation(shaderProgram2, "ourColor2");
+        glUniform4f(vertexColorLocation2, redValue, 0.0f, 0.0f, 1.0f);
+
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, (void*) (3*sizeof(GLuint)));
         glBindVertexArray(0);
