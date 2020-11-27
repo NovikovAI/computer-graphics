@@ -1,9 +1,15 @@
 #include <iostream>
 #include <cmath>
 
+// GLEW
 #define GLEW_STATIC
 #include <GL/glew.h>
+
+// GLFW
 #include <GLFW/glfw3.h>
+
+// Other includes
+#include "Shader.h"
 
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
@@ -15,35 +21,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 }
-
-// Shaders
-const GLchar* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 position;\n"
-"layout (location = 1) in vec3 color;\n"
-"out vec4 ourColor;\n"
-"void main()\n"
-"{\n"
-"gl_Position = vec4(position.x, position.y, position.z, 1.0);\n"
-"ourColor = vec4(color, 1.0f);\n"
-"}\0";
-
-const GLchar* fragmentShaderSource1 = "#version 330 core\n"
-"in vec4 ourColor;\n"
-"out vec4 color;\n"
-//"uniform vec4 ourColor1;\n"
-"void main()\n"
-"{\n"
-"color = ourColor;\n"
-"}\n\0";
-
-const GLchar* fragmentShaderSource2 = "#version 330 core\n"
-"in vec4 ourColor;\n"
-"out vec4 color;\n"
-//"uniform vec4 ourColor2;\n"
-"void main()\n"
-"{\n"
-"color = ourColor;\n"
-"}\n\0";
 
 int main()
 {
@@ -83,72 +60,9 @@ int main()
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
-    
-    // Build and compile our shader program
-    
-    // Vertex shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-    // Check for compile time errors
-    GLint success;
-    GLchar infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cout<<"ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"<<infoLog<<std::endl;
-    }
 
-    // Fragment shader
-    GLuint fragmentShader1 = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader1, 1, &fragmentShaderSource1, NULL);
-    glCompileShader(fragmentShader1);
-    // Check for compile time errors
-    glGetShaderiv(fragmentShader1, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(fragmentShader1, 512, NULL, infoLog);
-        std::cout<<"ERROR::SHADER::FRAGMENT1::COMPILATION_FAILED\n"<<infoLog<<std::endl;
-    }
-
-    //sane process for the second one
-    GLuint fragmentShader2 = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader2, 1, &fragmentShaderSource2, NULL);
-    glCompileShader(fragmentShader2);
-    glGetShaderiv(fragmentShader2, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(fragmentShader2, 512, NULL, infoLog);
-        std::cout<<"ERROR::SHADER::FRAGMENT2::COMPILATION_FAILED\n"<<infoLog<<std::endl;
-    }
-
-    // Link shaders
-    GLuint shaderProgram = glCreateProgram();
-    GLuint shaderProgram2 = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram2, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader1);
-    glAttachShader(shaderProgram2, fragmentShader2);
-    glLinkProgram(shaderProgram);
-    glLinkProgram(shaderProgram2);
-    // Check for linking errors
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cout<<"ERROR::SHADER::PROGRAM1::LINKING_FAILED\n"<<infoLog<<std::endl;
-    }
-    glGetProgramiv(shaderProgram2, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram2, 512, NULL, infoLog);
-        std::cout<<"ERROR::SHADER::PROGRAM2::LINKING_FAILED\n"<<infoLog<<std::endl;
-    }
-
-    //Delete shaders, 'cause we don't need them anymore
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader1);
-    glDeleteShader(fragmentShader2);
-
+    //Build and compile our shader program
+    Shader myShader("../shaders/default.ver", "../shaders/default.frag");
 
     // Set up vertex data (and buffer(s)) and attribute pointers
     GLfloat vertices[] = {
@@ -208,19 +122,9 @@ int main()
         GLfloat greenValue = (sin(timeValue) / 2) + 0.5;
         GLfloat redValue = (cos(timeValue) / 2) + 0.5;
         */
-
-        // Draw our first triangle
-        glUseProgram(shaderProgram);
-        /*
-        GLint vertexColorLocation1 = glGetUniformLocation(shaderProgram, "ourColor1");
-        glUniform4f(vertexColorLocation1, 0.0f, greenValue, 0.0f, 1.0f);
-        */
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
         
-        //second triangle
-        glUseProgram(shaderProgram2);
+        //Draw second triangle
+        myShader.Use();
         /*
         GLint vertexColorLocation2 = glGetUniformLocation(shaderProgram2, "ourColor2");
         glUniform4f(vertexColorLocation2, redValue, 0.0f, 0.0f, 1.0f);
