@@ -15,12 +15,30 @@
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
 
+/*stupididty here*/
+float globalTransparancyValue = 0.2f;
+/*stupididty here*/
+
 // Is called whenever a key is pressed/released via GLFW
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
     printf("%d\n",key);
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
+    /*stupidity here*/
+    if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+    {
+        globalTransparancyValue += 0.1f;
+        if (globalTransparancyValue >= 1.0f)
+            globalTransparancyValue = 1.0f;
+    }
+    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+    {
+        globalTransparancyValue -= 0.1f;
+        if (globalTransparancyValue <= 0.0f)
+            globalTransparancyValue = 0.0f;
+    }
+    /*stupidity here*/
 }
 
 int main()
@@ -68,10 +86,10 @@ int main()
     // Set up vertex data (and buffer(s)) and attribute pointers
     GLfloat vertices[] = {
         //Position          //Color            //Texture Coordinates
-         0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f,  // Top Right
-         0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,  // Bottom Right
+         0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  2.0f, 2.0f,  // Top Right
+         0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  2.0f, 0.0f,  // Bottom Right
         -0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f,  // Bottom Left
-        -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 1.0f   // Top Left
+        -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 2.0f   // Top Left
     };
     GLuint indices[] = {  // Note that we start from 0!
         0, 1, 3,  // First Triangle
@@ -113,8 +131,8 @@ int main()
     glGenTextures(1, &texture1);
     glBindTexture(GL_TEXTURE_2D, texture1);
     // Set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// Set texture wrapping to GL_REPEAT (usually basic wrapping method)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);	// Set texture wrapping to GL_REPEAT (usually basic wrapping method)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     // Set texture filtering parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -179,6 +197,10 @@ int main()
         glBindTexture(GL_TEXTURE_2D, texture1);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2);
+
+        /*stupidity here*/
+        glUniform1f(glGetUniformLocation(myShader.Program, "stupidity"), globalTransparancyValue);
+        /*stupidity here*/
 
         //Draw second triangle
         myShader.Use();
