@@ -8,6 +8,11 @@
 // GLFW
 #include <GLFW/glfw3.h>
 
+//GLM
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 // Other includes
 #include "Shader.h"
 #include "stb_image.h"
@@ -127,7 +132,6 @@ int main()
     
     //Create and load textures
     unsigned int texture1, texture2;
-    stbi_set_flip_vertically_on_load(true);
     glGenTextures(1, &texture1);
     glBindTexture(GL_TEXTURE_2D, texture1);
     // Set the texture wrapping parameters
@@ -138,6 +142,7 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     //load image
     int texWidth, texHeight, nrChannels;
+    stbi_set_flip_vertically_on_load(true);
     unsigned char* data = stbi_load("../textures/wooden_container.jpg", &texWidth, &texHeight, &nrChannels, 0);
     //check it
     if (data)
@@ -173,7 +178,7 @@ int main()
     stbi_image_free(data);
 
     //we need to set up proper texture unit
-    myShader.Use(); // не забудьте активировать шейдер перед настройкой uniform-переменных!  
+    myShader.Use(); // не забыть активировать шейдер перед настройкой uniform-переменных 
     glUniform1i(glGetUniformLocation(myShader.Program, "texture1"), 0); //it only needs to be done once
     glUniform1i(glGetUniformLocation(myShader.Program, "texture2"), 1);
 
@@ -201,6 +206,21 @@ int main()
         /*stupidity here*/
         glUniform1f(glGetUniformLocation(myShader.Program, "stupidity"), globalTransparancyValue);
         /*stupidity here*/
+
+        // Create transformation
+        /*Во время умножения матриц правая матрица умножается на вектор,
+        поэтому вам надо читать умножения справа налево.
+        Рекомендуется в начале масштабировать, затем вращать и в конце сдвигать, во время объединения матриц,
+        в ином случае они могут отрицать друг-друга.*/
+        GLfloat curTime = (sin((GLfloat)glfwGetTime()) / 2) + 0.5f;   //not really time, but a "normalized" one
+        glm::mat4 transform = glm::mat4(1.0f);
+        transform = glm::translate(transform, glm::vec3(curTime * 0.5f, curTime * (-0.5f), 0.0f));      //сдвиг
+        transform = glm::rotate(transform, (GLfloat)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));        //поворот
+        transform = glm::scale(transform, glm::vec3(curTime * 0.5f, 0.5f, 0.5f));                       //масштабирование
+
+        // Get matrix's uniform location and set matrix
+        GLint transformLocation = glGetUniformLocation(myShader.Program, "transform");
+        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(transform));
 
         //Draw second triangle
         myShader.Use();
