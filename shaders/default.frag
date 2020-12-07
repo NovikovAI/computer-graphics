@@ -3,11 +3,13 @@ in vec2 texCoords;
 
 out vec4 color;
 
+uniform vec3 objectColor;
+uniform vec3 lightColor;
 uniform sampler2D texture1;
 uniform sampler2D texture2;
 uniform float transparency;
 
 void main()
 {
-    color = mix(texture(texture1, texCoords), texture(texture2, vec2(1.0-texCoords.x,texCoords.y)), transparency);
+    color = mix(texture(texture1, texCoords), texture(texture2, vec2(1.0-texCoords.x,texCoords.y)), transparency) * vec4(objectColor * lightColor, 1.0f);
 }

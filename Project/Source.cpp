@@ -15,6 +15,7 @@
 
 // Other includes
 #include "Shader.h"
+#include "Camera.h"
 #include "stb_image.h"
 
 //Global parameters
@@ -26,15 +27,12 @@ const GLuint WIDTH = 800, HEIGHT = 600;
 //keyboard related
 bool keys[1024];
 //camera related
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-GLfloat yaw = -90.0f;
-GLfloat pitch = 0.0f;
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 GLfloat lastX = (GLfloat)WIDTH / 2.0;
 GLfloat lastY = (GLfloat)HEIGHT / 2.0;
-GLfloat fov = 45.0f;
 bool firstMouse = true;
+//lighting
+glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 // Deltatime-time between current frame and last frame
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
@@ -44,7 +42,7 @@ GLfloat lastFrame = 0.0f;
 // Is called whenever a key is pressed/released via GLFW
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
-    printf("%d\n",key);
+    std::cout<<key<<std::endl;
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
     if (key >= 0 && key < 1024)
@@ -69,15 +67,17 @@ void do_movements(){
         if (globalTransparancyValue <= 0.0f)
             globalTransparancyValue = 0.0f;
     }
-    GLfloat cameraSpeed = 5.0f * deltaTime;
     if (keys[GLFW_KEY_W])
-        cameraPos += cameraSpeed * cameraFront;
+        camera.ProcessKeyboard(FORWARD, deltaTime);
     if (keys[GLFW_KEY_S])
-        cameraPos -= cameraSpeed * cameraFront;
+        camera.ProcessKeyboard(BACKWARD, deltaTime);
     if (keys[GLFW_KEY_A])
-        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        camera.ProcessKeyboard(LEFT, deltaTime);
     if (keys[GLFW_KEY_D])
-        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        camera.ProcessKeyboard(RIGHT, deltaTime);
+    if (keys[GLFW_KEY_R]) {
+        camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));//this is the vector from the first camera constructor so this is VERY bad thing to do(also known as THE CRUTCH)
+    }
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
@@ -94,34 +94,12 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     lastX = xpos;
     lastY = ypos;
 
-    GLfloat sensitivity = 0.05;	// Change this value to your liking
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
-
-    yaw += xoffset;
-    pitch += yoffset;
-
-    // Make sure that when pitch is out of bounds, screen doesn't get flipped
-    if (pitch > 89.0f)
-        pitch = 89.0f;
-    if (pitch < -89.0f)
-        pitch = -89.0f;
-
-    glm::vec3 front;
-    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    front.y = sin(glm::radians(pitch));
-    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    cameraFront = glm::normalize(front);
+    camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-    if (fov >= 1.0f && fov <= 45.0f)
-        fov -= yoffset;
-    if (fov <= 1.0f)
-        fov = 1.0f;
-    if (fov >= 45.0f)
-        fov = 45.0f;
+    camera.ProcessMouseScroll(yoffset);
 }
 
 int main()
@@ -144,7 +122,7 @@ int main()
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Graphics", NULL, NULL);
     if (window == NULL)
     {
-        printf("Failed to create GLFW window\n");
+        std::cout<<"Failed to create GLFW window"<<std::endl;
         glfwTerminate();
         return -1;
     }
@@ -171,8 +149,9 @@ int main()
     //OpenGL options
     glEnable(GL_DEPTH_TEST);
 
-    //Build and compile our shader program
+    //Build and compile our shader programs
     Shader myShader("../shaders/default.ver", "../shaders/default.frag");
+    Shader lampShader("../shaders/lamp.ver", "../shaders/lamp.frag");
 
     // Set up vertex data (and buffer(s)) and attribute pointers
     GLfloat vertices[] = {
@@ -219,12 +198,6 @@ int main()
     -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
     -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
     };
-    /*
-    GLuint indices[] = {  // Note that we start from 0!
-        0, 1, 3,  // First Triangle
-        1, 2, 3   // Second Triangle
-    };
-    */
     //different WORLD posistions for cubes
     glm::vec3 cubePositions[] = {
         glm::vec3(0.0f,  0.0f,  0.0f),
@@ -238,22 +211,16 @@ int main()
         glm::vec3(1.5f,  0.2f, -1.5f),
         glm::vec3(-1.3f,  1.0f, -1.5f)
     };
-    GLuint VBO, VAO;// , EBO;
+    GLuint VBO, containerVAO;
 
-    glGenVertexArrays(1, &VAO);
+    glGenVertexArrays(1, &containerVAO);
     glGenBuffers(1, &VBO);
-    //glGenBuffers(1, &EBO);
     // Bind the Vertex Array Object first, then bind and set vertex buffer(s) and attribute pointer(s).
-    glBindVertexArray(VAO);
+    glBindVertexArray(containerVAO);
 
-    //VBO, EBO in VAO-start
+    //VBO in containerVAO-start
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    /*
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    */
 
     // Position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
@@ -263,9 +230,17 @@ int main()
     glEnableVertexAttribArray(2);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); // Note that this is allowed, the call to glVertexAttribPointer registered VBO as the currently bound vertex buffer object so afterwards we can safely unbind
-    //VBO, EBO in VAO-end
+    //VBO in containerVAO-end
 
     glBindVertexArray(0); // Unbind VAO (it's always a good thing to unbind any buffer/array to prevent strange bugs)
+
+    GLuint lightVAO;
+    glGenVertexArrays(1, &lightVAO);
+    glBindVertexArray(lightVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
     
     //Create and load textures
     unsigned int texture1, texture2;
@@ -352,12 +327,18 @@ int main()
         //passing transparency value to the shader
         glUniform1f(glGetUniformLocation(myShader.Program, "transparency"), globalTransparancyValue);
 
+        //passing color values to the shader
+        GLint objectColorLoc = glGetUniformLocation(myShader.Program, "objectColor");
+        GLint lightColorLoc = glGetUniformLocation(myShader.Program, "lightColor");
+        glUniform3f(objectColorLoc, 0.3f, 0.5f, 0.31f);
+        glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f);
+
         // Create transformation
         //still need to think about efficiency of making matrices in the game loop in the future
         glm::mat4 viewMat = glm::mat4(1.0f);
         glm::mat4 projectionMat = glm::mat4(1.0f);
-        viewMat = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-        projectionMat = glm::perspective(glm::radians(fov), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
+        viewMat = camera.GetViewMatrix();
+        projectionMat = glm::perspective(glm::radians(camera.Zoom), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
 
         // Get matrices' uniform location and set matrices
         GLint modelMatLoc = glGetUniformLocation(myShader.Program, "modelMat");
@@ -368,7 +349,7 @@ int main()
         glUniformMatrix4fv(projectionMatLoc, 1, GL_FALSE, glm::value_ptr(projectionMat));
 
         //Draw figures
-        glBindVertexArray(VAO);
+        glBindVertexArray(containerVAO);
         for (GLint i = 0; i < 10; i++)
         {
             glm::mat4 modelMat = glm::mat4(1.0f);
@@ -380,12 +361,27 @@ int main()
         }
         glBindVertexArray(0);
 
+        //and lighting
+        lampShader.Use();
+        modelMatLoc = glGetUniformLocation(lampShader.Program, "modelMat");
+        viewMatLoc = glGetUniformLocation(lampShader.Program, "viewMat");
+        projectionMatLoc = glGetUniformLocation(lampShader.Program, "projectionMat");
+        glUniformMatrix4fv(viewMatLoc, 1, GL_FALSE, glm::value_ptr(viewMat));
+        glUniformMatrix4fv(projectionMatLoc, 1, GL_FALSE, glm::value_ptr(projectionMat));
+        glm::mat4 modelMat = glm::mat4(1.0f);
+        modelMat = glm::translate(modelMat, lightPos);
+        modelMat = glm::scale(modelMat, glm::vec3(0.1f));
+        glUniformMatrix4fv(modelMatLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
+        glBindVertexArray(lightVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+
         // Swap the screen buffers
         glfwSwapBuffers(window);
     }
 
     // Properly de-allocate all resources once they've outlived their purpose
-    glDeleteVertexArrays(1, &VAO);
+    glDeleteVertexArrays(1, &containerVAO);
     glDeleteBuffers(1, &VBO);
     //glDeleteBuffers(1, &EBO);
 

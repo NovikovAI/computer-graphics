@@ -29,12 +29,21 @@
     <ClInclude Include="stb_image.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\default.ver">
       <Filter>Исходные файлы</Filter>
     </None>
     <None Include="..\shaders\default.frag">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\lamp.ver">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\lamp.frag">
       <Filter>Исходные файлы</Filter>
     </None>
   </ItemGroup>

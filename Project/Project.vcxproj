@@ -151,12 +151,15 @@
     <ClCompile Include="stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\default.frag" />
     <None Include="..\shaders\default.ver" />
+    <None Include="..\shaders\lamp.frag" />
+    <None Include="..\shaders\lamp.ver" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
