@@ -276,9 +276,15 @@ int main()
         */
         
         //GLfloat curTime = (sin((GLfloat)glfwGetTime()) / 2) + 0.5f;   //not really time, but a "normalized" one
+        //still need to think about efficiency of making matrices in the game loop in the future
         glm::mat4 viewMat = glm::mat4(1.0f);
         glm::mat4 projectionMat = glm::mat4(1.0f);
-        viewMat = glm::translate(viewMat, glm::vec3(0.0f, 0.0f, -3.0f));
+
+        GLfloat radius = 10.0f;
+        GLfloat camX = sin(glfwGetTime()) * radius;
+        GLfloat camZ = cos(glfwGetTime()) * radius;
+        viewMat = glm::lookAt(glm::vec3(camX, 0.0, camZ), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+        //viewMat = glm::translate(viewMat, glm::vec3(0.0f, 0.0f, -3.0f));
         projectionMat = glm::perspective(glm::radians(45.0f), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
 
         // Get matrices' uniform location and set matrices
