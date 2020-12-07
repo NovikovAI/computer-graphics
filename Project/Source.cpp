@@ -1,4 +1,4 @@
-#include <iostream>
+п»ї#include <iostream>
 #include <cmath>
 
 // GLEW
@@ -17,12 +17,29 @@
 #include "Shader.h"
 #include "stb_image.h"
 
+//Global parameters
+//====================================================
+//texture related
+float globalTransparancyValue = 0.2f;
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
+//keyboard related
+bool keys[1024];
+//camera related
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+GLfloat yaw = -90.0f;
+GLfloat pitch = 0.0f;
+GLfloat lastX = (GLfloat)WIDTH / 2.0;
+GLfloat lastY = (GLfloat)HEIGHT / 2.0;
+GLfloat fov = 45.0f;
+bool firstMouse = true;
+// Deltatime-time between current frame and last frame
+GLfloat deltaTime = 0.0f;
+GLfloat lastFrame = 0.0f;
+//====================================================
 
-/*stupididty here*/
-float globalTransparancyValue = 0.2f;
-/*stupididty here*/
 
 // Is called whenever a key is pressed/released via GLFW
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
@@ -30,20 +47,81 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     printf("%d\n",key);
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
-    /*stupidity here*/
-    if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+    if (key >= 0 && key < 1024)
     {
-        globalTransparancyValue += 0.1f;
+        if (action == GLFW_PRESS)
+            keys[key] = true;
+        else if (action == GLFW_RELEASE)
+            keys[key] = false;
+    }
+}
+
+void do_movements(){
+    if (keys[GLFW_KEY_UP])
+    {
+        globalTransparancyValue += 0.01f;
         if (globalTransparancyValue >= 1.0f)
             globalTransparancyValue = 1.0f;
     }
-    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+    if (keys[GLFW_KEY_DOWN])
     {
-        globalTransparancyValue -= 0.1f;
+        globalTransparancyValue -= 0.01f;
         if (globalTransparancyValue <= 0.0f)
             globalTransparancyValue = 0.0f;
     }
-    /*stupidity here*/
+    GLfloat cameraSpeed = 5.0f * deltaTime;
+    if (keys[GLFW_KEY_W])
+        cameraPos += cameraSpeed * cameraFront;
+    if (keys[GLFW_KEY_S])
+        cameraPos -= cameraSpeed * cameraFront;
+    if (keys[GLFW_KEY_A])
+        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (keys[GLFW_KEY_D])
+        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    if (firstMouse)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    GLfloat xoffset = xpos - lastX;
+    GLfloat yoffset = lastY - ypos; // Reversed since y-coordinates go from bottom to left
+    lastX = xpos;
+    lastY = ypos;
+
+    GLfloat sensitivity = 0.05;	// Change this value to your liking
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    // Make sure that when pitch is out of bounds, screen doesn't get flipped
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(front);
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    if (fov >= 1.0f && fov <= 45.0f)
+        fov -= yoffset;
+    if (fov <= 1.0f)
+        fov = 1.0f;
+    if (fov >= 45.0f)
+        fov = 45.0f;
 }
 
 int main()
@@ -52,15 +130,15 @@ int main()
     if (!glfwInit())
         return -1;
     // Set all the required options for GLFW
-    //Настройка GLFW
-    //Задается минимальная требуемая версия OpenGL. 
-    //Мажорная 
+    //РќР°СЃС‚СЂРѕР№РєР° GLFW
+    //Р—Р°РґР°РµС‚СЃСЏ РјРёРЅРёРјР°Р»СЊРЅР°СЏ С‚СЂРµР±СѓРµРјР°СЏ РІРµСЂСЃРёСЏ OpenGL. 
+    //РњР°Р¶РѕСЂРЅР°СЏ 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    //Минорная
+    //РњРёРЅРѕСЂРЅР°СЏ
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    //Установка профайла для которого создается контекст
+    //РЈСЃС‚Р°РЅРѕРІРєР° РїСЂРѕС„Р°Р№Р»Р° РґР»СЏ РєРѕС‚РѕСЂРѕРіРѕ СЃРѕР·РґР°РµС‚СЃСЏ РєРѕРЅС‚РµРєСЃС‚
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    //Выключение возможности изменения размера окна
+    //Р’С‹РєР»СЋС‡РµРЅРёРµ РІРѕР·РјРѕР¶РЅРѕСЃС‚Рё РёР·РјРµРЅРµРЅРёСЏ СЂР°Р·РјРµСЂР° РѕРєРЅР°
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Graphics", NULL, NULL);
@@ -74,6 +152,11 @@ int main()
 
     // Set the required callback functions
     glfwSetKeyCallback(window, key_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+
+    //GLFW options
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
     glewExperimental = GL_TRUE;
@@ -232,7 +315,7 @@ int main()
     stbi_image_free(data);
 
     //we need to set up proper texture unit
-    myShader.Use(); // не забыть активировать шейдер перед настройкой uniform-переменных 
+    myShader.Use(); // РЅРµ Р·Р°Р±С‹С‚СЊ Р°РєС‚РёРІРёСЂРѕРІР°С‚СЊ С€РµР№РґРµСЂ РїРµСЂРµРґ РЅР°СЃС‚СЂРѕР№РєРѕР№ uniform-РїРµСЂРµРјРµРЅРЅС‹С… 
     glUniform1i(glGetUniformLocation(myShader.Program, "texture1"), 0); //it only needs to be done once
     glUniform1i(glGetUniformLocation(myShader.Program, "texture2"), 1);
 
@@ -243,8 +326,14 @@ int main()
     //Game loop
     while (!glfwWindowShouldClose(window))
     {
+        // Calculate deltatime of current frame
+        GLfloat currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         // Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
         glfwPollEvents();
+        do_movements();
 
         //render
         // Clear the colorbuffer
@@ -260,32 +349,15 @@ int main()
         //Activate shader
         myShader.Use();
 
-        /*stupidity here*/
-        glUniform1f(glGetUniformLocation(myShader.Program, "stupidity"), globalTransparancyValue);
-        /*stupidity here*/
+        //passing transparency value to the shader
+        glUniform1f(glGetUniformLocation(myShader.Program, "transparency"), globalTransparancyValue);
 
         // Create transformation
-        /*Во время умножения матриц правая матрица умножается на вектор,
-        поэтому вам надо читать умножения справа налево.
-        Рекомендуется в начале масштабировать, затем вращать и в конце сдвигать, во время объединения матриц,
-        в ином случае они могут отрицать друг-друга.
-
-        transform = glm::translate(transform, glm::vec3(curTime * 0.5f, curTime * (-0.5f), 0.0f));      //сдвиг
-        transform = glm::rotate(transform, (GLfloat)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));        //поворот
-        transform = glm::scale(transform, glm::vec3(curTime * 0.5f, 0.5f, 0.5f));                       //масштабирование
-        */
-        
-        //GLfloat curTime = (sin((GLfloat)glfwGetTime()) / 2) + 0.5f;   //not really time, but a "normalized" one
         //still need to think about efficiency of making matrices in the game loop in the future
         glm::mat4 viewMat = glm::mat4(1.0f);
         glm::mat4 projectionMat = glm::mat4(1.0f);
-
-        GLfloat radius = 10.0f;
-        GLfloat camX = sin(glfwGetTime()) * radius;
-        GLfloat camZ = cos(glfwGetTime()) * radius;
-        viewMat = glm::lookAt(glm::vec3(camX, 0.0, camZ), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-        //viewMat = glm::translate(viewMat, glm::vec3(0.0f, 0.0f, -3.0f));
-        projectionMat = glm::perspective(glm::radians(45.0f), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
+        viewMat = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        projectionMat = glm::perspective(glm::radians(fov), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
 
         // Get matrices' uniform location and set matrices
         GLint modelMatLoc = glGetUniformLocation(myShader.Program, "modelMat");
