@@ -294,8 +294,8 @@ int main()
 
     //we need to set up proper texture unit
     myShader.Use(); // не забыть активировать шейдер перед настройкой uniform-переменных 
-    glUniform1i(glGetUniformLocation(myShader.Program, "texture1"), 0); //it only needs to be done once
-    glUniform1i(glGetUniformLocation(myShader.Program, "texture2"), 1);
+    myShader.setInt("texture1", 0); //it only needs to be done once
+    myShader.setInt("texture2", 1);
 
     glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done to not F up
 
@@ -328,22 +328,31 @@ int main()
         myShader.Use();
 
         //passing transparency value to the shader
-        glUniform1f(glGetUniformLocation(myShader.Program, "transparency"), globalTransparancyValue);
+        myShader.setFloat("transparency", globalTransparancyValue);
 
         //let's spin the lamp too
-        float lampRadius = 2.0f;
+        float lampRadius = 3.0f;
         lightPos.x = sin(glfwGetTime()) * lampRadius;
         lightPos.z = cos(glfwGetTime()) * lampRadius;
 
-        //passing color values to the shader
-        GLint objectColorLoc = glGetUniformLocation(myShader.Program, "objectColor");
-        GLint lightColorLoc = glGetUniformLocation(myShader.Program, "lightColor");
-        GLint viewPosLoc = glGetUniformLocation(myShader.Program, "viewPos");
-        GLint lightPosLoc = glGetUniformLocation(myShader.Program, "lightPos");
-        glUniform3f(objectColorLoc, 0.62f, 0.5f, 0.31f);
-        glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f);
-        glUniform3f(viewPosLoc, camera.Position.x, camera.Position.y, camera.Position.z);
-        glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
+        //passing all sorts of values to the shader
+        myShader.setVec3("viewPos", camera.Position.x, camera.Position.y, camera.Position.z);
+        //Material
+        myShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
+        myShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
+        myShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
+        myShader.setFloat("material.shininess", 64.0f);
+        //Light
+        glm::vec3 lightColor;
+        lightColor.x = sin(glfwGetTime() * 0.3f);
+        lightColor.y = sin(glfwGetTime() * 0.5f);
+        lightColor.z = sin(glfwGetTime() * 0.7f);
+        glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f); // decrease the influence
+        glm::vec3 ambientColor = lightColor * glm::vec3(0.2f); // low influence
+        myShader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
+        myShader.setVec3("light.ambient", ambientColor);
+        myShader.setVec3("light.diffuse", diffuseColor);
+        myShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 
         // Create transformation
         //still need to think about efficiency of making matrices in the game loop in the future
@@ -353,12 +362,8 @@ int main()
         projectionMat = glm::perspective(glm::radians(camera.Zoom), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
 
         // Get matrices' uniform location and set matrices
-        GLint modelMatLoc = glGetUniformLocation(myShader.Program, "modelMat");
-
-        GLint viewMatLoc = glGetUniformLocation(myShader.Program, "viewMat");
-        glUniformMatrix4fv(viewMatLoc, 1, GL_FALSE, glm::value_ptr(viewMat));
-        GLint projectionMatLoc = glGetUniformLocation(myShader.Program, "projectionMat");
-        glUniformMatrix4fv(projectionMatLoc, 1, GL_FALSE, glm::value_ptr(projectionMat));
+        myShader.setMat4("viewMat", viewMat);
+        myShader.setMat4("projectionMat", projectionMat);
 
         //Draw figures
         glBindVertexArray(containerVAO);
@@ -368,22 +373,19 @@ int main()
             modelMat = glm::translate(modelMat, cubePositions[i]);
             GLfloat cubeAngle = 20.0f * i;
             modelMat = glm::rotate(modelMat, (GLfloat)glfwGetTime() * glm::radians(-55.0f) + cubeAngle, glm::vec3(0.5f * (GLfloat)i, 1.0f, 0.0f));
-            glUniformMatrix4fv(modelMatLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
+            myShader.setMat4("modelMat", modelMat);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
         glBindVertexArray(0);
 
         //and lighting
         lampShader.Use();
-        modelMatLoc = glGetUniformLocation(lampShader.Program, "modelMat");
-        viewMatLoc = glGetUniformLocation(lampShader.Program, "viewMat");
-        projectionMatLoc = glGetUniformLocation(lampShader.Program, "projectionMat");
-        glUniformMatrix4fv(viewMatLoc, 1, GL_FALSE, glm::value_ptr(viewMat));
-        glUniformMatrix4fv(projectionMatLoc, 1, GL_FALSE, glm::value_ptr(projectionMat));
+        lampShader.setMat4("viewMat", viewMat);
+        lampShader.setMat4("projectionMat", projectionMat);
         glm::mat4 modelMat = glm::mat4(1.0f);
         modelMat = glm::translate(modelMat, lightPos);
         modelMat = glm::scale(modelMat, glm::vec3(0.1f));
-        glUniformMatrix4fv(modelMatLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
+        lampShader.setMat4("modelMat", modelMat);
         glBindVertexArray(lightVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
