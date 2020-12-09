@@ -20,6 +20,8 @@
 
 //Global parameters
 //====================================================
+//texture related
+float globalTransparancyValue = 0.2f;
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
 //keyboard related
@@ -53,6 +55,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 void do_movements(){
+    if (keys[GLFW_KEY_UP])
+    {
+        globalTransparancyValue += 0.01f;
+        if (globalTransparancyValue >= 1.0f)
+            globalTransparancyValue = 1.0f;
+    }
+    if (keys[GLFW_KEY_DOWN])
+    {
+        globalTransparancyValue -= 0.01f;
+        if (globalTransparancyValue <= 0.0f)
+            globalTransparancyValue = 0.0f;
+    }
     if (keys[GLFW_KEY_W])
         camera.ProcessKeyboard(FORWARD, deltaTime);
     if (keys[GLFW_KEY_S])
@@ -86,43 +100,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(yoffset);
-}
-
-unsigned int loadTexture(char const* path)
-{
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-
-    int width, height, nrComponents;
-    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
-    if (data)
-    {
-        GLenum format;
-        if (nrComponents == 1)
-            format = GL_RED;
-        else if (nrComponents == 3)
-            format = GL_RGB;
-        else if (nrComponents == 4)
-            format = GL_RGBA;
-
-        glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        stbi_image_free(data);
-    }
-    else
-    {
-        std::cout << "Texture failed to load at path: " << path << std::endl;
-        stbi_image_free(data);
-    }
-
-    return textureID;
 }
 
 int main()
@@ -269,17 +246,60 @@ int main()
     glBindVertexArray(0);
     
     //Create and load textures
-    unsigned int diffuseMap = loadTexture("../textures/container2.png");
-    unsigned int specularMap = loadTexture("../textures/container2_specular.png");
-    unsigned int emissionMap = loadTexture("../textures/matrix.jpg");
+    unsigned int texture1, texture2;
+    glGenTextures(1, &texture1);
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    // Set the texture wrapping parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);	// Set texture wrapping to GL_REPEAT (usually basic wrapping method)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // Set texture filtering parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //load image
+    int texWidth, texHeight, nrChannels;
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char* data = stbi_load("../textures/wooden_container.jpg", &texWidth, &texHeight, &nrChannels, 0);
+    //check it
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    //generate another texture
+    glGenTextures(1, &texture2);
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    // Same parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// Set texture wrapping to GL_REPEAT (usually basic wrapping method)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //load image
+    data = stbi_load("../textures/awesomeface.png", &texWidth, &texHeight, &nrChannels, 0);
+    //check it
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    //and don't forget to free it
+    stbi_image_free(data);
 
     //we need to set up proper texture unit
     myShader.Use(); // не забыть активировать шейдер перед настройкой uniform-переменных 
-    myShader.setInt("material.diffuse", 0); //it only needs to be done once
-    myShader.setInt("material.specular", 1);
-    myShader.setInt("material.emission", 2);
+    myShader.setInt("texture1", 0); //it only needs to be done once
+    myShader.setInt("texture2", 1);
 
     glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done to not F up
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //2nd arg: use GL_LINE for outline only, GL_FILL for filled primitives 
 
     //Game loop
     while (!glfwWindowShouldClose(window))
@@ -295,11 +315,20 @@ int main()
 
         //render
         // Clear the colorbuffer
-        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
+        // Bind Texture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture2);
+
         //Activate shader
         myShader.Use();
+
+        //passing transparency value to the shader
+        myShader.setFloat("transparency", globalTransparancyValue);
 
         //let's spin the lamp too
         float lampRadius = 3.0f;
@@ -309,12 +338,15 @@ int main()
         //passing all sorts of values to the shader
         myShader.setVec3("viewPos", camera.Position.x, camera.Position.y, camera.Position.z);
         //Material
+        myShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
+        myShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
+        myShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
         myShader.setFloat("material.shininess", 64.0f);
         //Light
         glm::vec3 lightColor;
-        lightColor.x = sin(currentFrame * 0.3f);
-        lightColor.y = sin(currentFrame * 0.5f);
-        lightColor.z = sin(currentFrame * 0.7f);
+        lightColor.x = sin(glfwGetTime() * 0.3f);
+        lightColor.y = sin(glfwGetTime() * 0.5f);
+        lightColor.z = sin(glfwGetTime() * 0.7f);
         glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f); // decrease the influence
         glm::vec3 ambientColor = lightColor * glm::vec3(0.2f); // low influence
         myShader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
@@ -322,27 +354,16 @@ int main()
         myShader.setVec3("light.diffuse", diffuseColor);
         myShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 
-        myShader.setFloat("time", 5.0 * currentFrame);
-
         // Create transformation
         //still need to think about efficiency of making matrices in the game loop in the future
         glm::mat4 viewMat = glm::mat4(1.0f);
         glm::mat4 projectionMat = glm::mat4(1.0f);
-        glm::mat4 modelMat = glm::mat4(1.0f);
         viewMat = camera.GetViewMatrix();
         projectionMat = glm::perspective(glm::radians(camera.Zoom), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
 
         // Get matrices' uniform location and set matrices
         myShader.setMat4("viewMat", viewMat);
         myShader.setMat4("projectionMat", projectionMat);
-
-        // Bind Texture
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, specularMap);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, emissionMap);
 
         //Draw figures
         glBindVertexArray(containerVAO);
@@ -351,7 +372,7 @@ int main()
             glm::mat4 modelMat = glm::mat4(1.0f);
             modelMat = glm::translate(modelMat, cubePositions[i]);
             GLfloat cubeAngle = 20.0f * i;
-            modelMat = glm::rotate(modelMat, (GLfloat)glfwGetTime() * glm::radians(55.0f) + cubeAngle, glm::vec3(0.5f, 0.0f, 0.5f));
+            modelMat = glm::rotate(modelMat, (GLfloat)glfwGetTime() * glm::radians(-55.0f) + cubeAngle, glm::vec3(0.5f * (GLfloat)i, 1.0f, 0.0f));
             myShader.setMat4("modelMat", modelMat);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
@@ -361,7 +382,7 @@ int main()
         lampShader.Use();
         lampShader.setMat4("viewMat", viewMat);
         lampShader.setMat4("projectionMat", projectionMat);
-        modelMat = glm::mat4(1.0f);
+        glm::mat4 modelMat = glm::mat4(1.0f);
         modelMat = glm::translate(modelMat, lightPos);
         modelMat = glm::scale(modelMat, glm::vec3(0.1f));
         lampShader.setMat4("modelMat", modelMat);
