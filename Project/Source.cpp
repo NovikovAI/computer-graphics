@@ -303,8 +303,8 @@ int main()
 
         //let's spin the lamp too
         float lampRadius = 3.0f;
-        lightPos.x = sin(glfwGetTime()) * lampRadius;
-        lightPos.z = cos(glfwGetTime()) * lampRadius;
+        lightPos.x = sin(currentFrame) * lampRadius;
+        lightPos.z = cos(currentFrame) * lampRadius;
 
         //passing all sorts of values to the shader
         myShader.setVec3("viewPos", camera.Position.x, camera.Position.y, camera.Position.z);
@@ -318,9 +318,14 @@ int main()
         glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f); // decrease the influence
         glm::vec3 ambientColor = lightColor * glm::vec3(0.2f); // low influence
         myShader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
+        //all 3 components parameters
         myShader.setVec3("light.ambient", ambientColor);
         myShader.setVec3("light.diffuse", diffuseColor);
         myShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+        //attenuation parameters
+        myShader.setFloat("light.constant", 1.0f);
+        myShader.setFloat("light.linear", 0.09f);
+        myShader.setFloat("light.quadratic", 0.032f);
 
         myShader.setFloat("time", 5.0 * currentFrame);
 
@@ -351,7 +356,7 @@ int main()
             glm::mat4 modelMat = glm::mat4(1.0f);
             modelMat = glm::translate(modelMat, cubePositions[i]);
             GLfloat cubeAngle = 20.0f * i;
-            modelMat = glm::rotate(modelMat, (GLfloat)glfwGetTime() * glm::radians(55.0f) + cubeAngle, glm::vec3(0.5f, 0.0f, 0.5f));
+            modelMat = glm::rotate(modelMat, currentFrame * glm::radians(55.0f) + cubeAngle, glm::vec3(0.5f, 0.0f, 0.5f));
             myShader.setMat4("modelMat", modelMat);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }

@@ -9,9 +9,14 @@ struct Material {
 
 struct Light {
     vec3 position;
+
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
+
+    float constant;
+    float linear;
+    float quadratic;
 };
 
 //=================IN==================
@@ -33,6 +38,10 @@ uniform float time;
 
 void main()
 {
+    //calculating attenuation
+    float distance    = length(light.position - FragmentPos);
+    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
+
     //Ambient component of light
     vec3 ambient = light.ambient * texture(material.diffuse, texCoords).rgb;
 
@@ -56,6 +65,11 @@ void main()
         emission = emission * vec3(0.0, 0.0, 1.0);
         emission = emission * (sin(time) * 0.5 + 0.5) * 10.0;
     }
+
+    //applying attenuation for realistic lighting
+    ambient *= attenuation;
+    diffuse *= attenuation;
+    specular *= attenuation;
 
     vec3 result = ambient + diffuse + specular + emission;
     color = vec4(result, 1.0f);
