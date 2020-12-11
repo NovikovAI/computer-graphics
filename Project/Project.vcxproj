@@ -88,13 +88,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)GL\GLFW\include;$(SolutionDir)GL\GLEW\include;$(SolutionDir)/GL/GLM;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)GL\GLFW\include;$(SolutionDir)/GL/GLM;$(SolutionDir)GL\Assimp\include;$(SolutionDir)GL\GLAD\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)GL\GLFW\lib-vc2019;$(SolutionDir)GL\GLEW\lib\Release\Win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glfw3.lib;glew32s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)GL\GLFW\lib-vc2019;$(SolutionDir)GL\Assimp\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glfw3.lib;assimp-vc142-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -105,15 +105,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)GL\GLFW\include;$(SolutionDir)GL\GLEW\include;$(SolutionDir)/GL/GLM;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)GL\GLFW\include;$(SolutionDir)/GL/GLM;$(SolutionDir)GL\Assimp\include;$(SolutionDir)GL\GLAD\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)GL\GLFW\lib-vc2019;$(SolutionDir)GL\GLEW\lib\Release\Win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glfw3.lib;glew32s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)GL\GLFW\lib-vc2019;$(SolutionDir)GL\Assimp\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glfw3.lib;assimp-vc142-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -147,11 +147,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\GL\GLAD\src\glad.c" />
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="Model.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="stb_image.h" />
   </ItemGroup>
@@ -160,6 +163,8 @@
     <None Include="..\shaders\default.ver" />
     <None Include="..\shaders\lamp.frag" />
     <None Include="..\shaders\lamp.ver" />
+    <None Include="..\shaders\model_loading.frag" />
+    <None Include="..\shaders\model_loading.ver" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

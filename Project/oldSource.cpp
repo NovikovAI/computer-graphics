@@ -1,5 +1,6 @@
 ﻿#include <iostream>
 #include <cmath>
+#include <string>
 
 // GLEW
 #define GLEW_STATIC
@@ -20,8 +21,6 @@
 
 //Global parameters
 //====================================================
-//texture related
-float globalTransparancyValue = 0.2f;
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
 //keyboard related
@@ -32,7 +31,7 @@ GLfloat lastX = (GLfloat)WIDTH / 2.0;
 GLfloat lastY = (GLfloat)HEIGHT / 2.0;
 bool firstMouse = true;
 //lighting
-glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+glm::vec3 lightPos(1.0f, 1.0f, 1.0f);
 // Deltatime-time between current frame and last frame
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
@@ -55,18 +54,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 void do_movements(){
-    if (keys[GLFW_KEY_UP])
-    {
-        globalTransparancyValue += 0.01f;
-        if (globalTransparancyValue >= 1.0f)
-            globalTransparancyValue = 1.0f;
-    }
-    if (keys[GLFW_KEY_DOWN])
-    {
-        globalTransparancyValue -= 0.01f;
-        if (globalTransparancyValue <= 0.0f)
-            globalTransparancyValue = 0.0f;
-    }
     if (keys[GLFW_KEY_W])
         camera.ProcessKeyboard(FORWARD, deltaTime);
     if (keys[GLFW_KEY_S])
@@ -100,6 +87,43 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(yoffset);
+}
+
+unsigned int loadTexture(char const* path)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data)
+    {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+    }
+    else
+    {
+        std::cout << "Texture failed to load at path: " << path << std::endl;
+        stbi_image_free(data);
+    }
+
+    return textureID;
 }
 
 int main()
@@ -211,6 +235,14 @@ int main()
         glm::vec3(1.5f,  0.2f, -1.5f),
         glm::vec3(-1.3f,  1.0f, -1.5f)
     };
+    //and lights
+    glm::vec3 pointLightPositions[] = {
+        glm::vec3(0.7f,  0.2f,  2.0f),
+        glm::vec3(2.3f, -3.3f, -4.0f),
+        glm::vec3(-4.0f,  2.0f, -12.0f),
+        glm::vec3(0.0f,  0.0f, -3.0f)
+    };
+ 
     GLuint VBO, containerVAO;
 
     glGenVertexArrays(1, &containerVAO);
@@ -246,60 +278,17 @@ int main()
     glBindVertexArray(0);
     
     //Create and load textures
-    unsigned int texture1, texture2;
-    glGenTextures(1, &texture1);
-    glBindTexture(GL_TEXTURE_2D, texture1);
-    // Set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);	// Set texture wrapping to GL_REPEAT (usually basic wrapping method)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    // Set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //load image
-    int texWidth, texHeight, nrChannels;
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char* data = stbi_load("../textures/wooden_container.jpg", &texWidth, &texHeight, &nrChannels, 0);
-    //check it
-    if (data)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else
-    {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    //generate another texture
-    glGenTextures(1, &texture2);
-    glBindTexture(GL_TEXTURE_2D, texture2);
-    // Same parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// Set texture wrapping to GL_REPEAT (usually basic wrapping method)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //load image
-    data = stbi_load("../textures/awesomeface.png", &texWidth, &texHeight, &nrChannels, 0);
-    //check it
-    if (data)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else
-    {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    //and don't forget to free it
-    stbi_image_free(data);
+    unsigned int diffuseMap = loadTexture("../textures/container2.png");
+    unsigned int specularMap = loadTexture("../textures/container2_specular.png");
+    unsigned int emissionMap = loadTexture("../textures/matrix.jpg");
 
     //we need to set up proper texture unit
     myShader.Use(); // не забыть активировать шейдер перед настройкой uniform-переменных 
-    myShader.setInt("texture1", 0); //it only needs to be done once
-    myShader.setInt("texture2", 1);
+    myShader.setInt("material.diffuse", 0); //it only needs to be done once
+    myShader.setInt("material.specular", 1);
+    myShader.setInt("material.emission", 2);
 
     glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done to not F up
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //2nd arg: use GL_LINE for outline only, GL_FILL for filled primitives 
 
     //Game loop
     while (!glfwWindowShouldClose(window))
@@ -315,49 +304,60 @@ int main()
 
         //render
         // Clear the colorbuffer
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-        // Bind Texture
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture2);
-
         //Activate shader
         myShader.Use();
 
-        //passing transparency value to the shader
-        myShader.setFloat("transparency", globalTransparancyValue);
-
-        //let's spin the lamp too
-        float lampRadius = 3.0f;
-        lightPos.x = sin(glfwGetTime()) * lampRadius;
-        lightPos.z = cos(glfwGetTime()) * lampRadius;
 
         //passing all sorts of values to the shader
         myShader.setVec3("viewPos", camera.Position.x, camera.Position.y, camera.Position.z);
+        myShader.setFloat("time", 5.0 * currentFrame);
         //Material
-        myShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
-        myShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
-        myShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
         myShader.setFloat("material.shininess", 64.0f);
-        //Light
+        //Lights
+        
         glm::vec3 lightColor;
-        lightColor.x = sin(glfwGetTime() * 0.3f);
-        lightColor.y = sin(glfwGetTime() * 0.5f);
-        lightColor.z = sin(glfwGetTime() * 0.7f);
+        lightColor.x = sin(currentFrame * 0.3f);
+        lightColor.y = sin(currentFrame * 0.5f);
+        lightColor.z = sin(currentFrame * 0.7f);
         glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f); // decrease the influence
         glm::vec3 ambientColor = lightColor * glm::vec3(0.2f); // low influence
-        myShader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
-        myShader.setVec3("light.ambient", ambientColor);
-        myShader.setVec3("light.diffuse", diffuseColor);
-        myShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+
+        //direction light
+        myShader.setVec3("directLight.direction", -0.2f, -1.0f, -0.3f);
+        myShader.setVec3("directLight.ambient", glm::vec3(0.05f));
+        myShader.setVec3("directLight.diffuse", glm::vec3(0.4f));
+        myShader.setVec3("directLight.specular", glm::vec3(0.5f));
+        // four point lights
+        for (unsigned int i = 0; i < 4; i++)
+        {
+            std::string curName = "pointLights[" + std::to_string(i) + std::string(1, ']');
+            myShader.setVec3(curName + ".position", pointLightPositions[i]);
+            myShader.setFloat(curName + ".constant", 1.0f);
+            myShader.setFloat(curName + ".linear", 0.09f);
+            myShader.setFloat(curName + ".quadratic", 0.032f);
+            myShader.setVec3(curName + ".ambient", ambientColor);
+            myShader.setVec3(curName + ".diffuse", diffuseColor);
+            myShader.setVec3(curName + ".specular", glm::vec3(1.0f));
+        }
+        //spotlight
+        myShader.setVec3("spotlight.position", camera.Position);
+        myShader.setVec3("spotlight.direction", camera.Front);
+        myShader.setFloat("spotlight.cutOff", glm::cos(glm::radians(12.5f)));
+        myShader.setFloat("spotlight.outerCutOff", glm::cos(glm::radians(15.5f)));
+        myShader.setFloat("spotlight.constant", 1.0f);          //chose constants for 50 units
+        myShader.setFloat("spotlight.linear", 0.09f);
+        myShader.setFloat("spotlight.quadratic", 0.032f);
+        myShader.setVec3("spotlight.ambient", glm::vec3(0.0f));
+        myShader.setVec3("spotlight.diffuse", glm::vec3(1.0f));
+        myShader.setVec3("spotlight.specular", glm::vec3(1.0f));
 
         // Create transformation
-        //still need to think about efficiency of making matrices in the game loop in the future
         glm::mat4 viewMat = glm::mat4(1.0f);
         glm::mat4 projectionMat = glm::mat4(1.0f);
+        glm::mat4 modelMat = glm::mat4(1.0f);
         viewMat = camera.GetViewMatrix();
         projectionMat = glm::perspective(glm::radians(camera.Zoom), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
 
@@ -365,14 +365,22 @@ int main()
         myShader.setMat4("viewMat", viewMat);
         myShader.setMat4("projectionMat", projectionMat);
 
+        // Bind Texture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specularMap);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, emissionMap);
+
         //Draw figures
         glBindVertexArray(containerVAO);
-        for (GLint i = 0; i < 10; i++)
+        for (unsigned int i = 0; i < 10; i++)
         {
             glm::mat4 modelMat = glm::mat4(1.0f);
             modelMat = glm::translate(modelMat, cubePositions[i]);
             GLfloat cubeAngle = 20.0f * i;
-            modelMat = glm::rotate(modelMat, (GLfloat)glfwGetTime() * glm::radians(-55.0f) + cubeAngle, glm::vec3(0.5f * (GLfloat)i, 1.0f, 0.0f));
+            modelMat = glm::rotate(modelMat, currentFrame * glm::radians(55.0f) + glm::radians(cubeAngle), glm::vec3(1.0f, 0.3f, 0.5f));
             myShader.setMat4("modelMat", modelMat);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
@@ -382,12 +390,23 @@ int main()
         lampShader.Use();
         lampShader.setMat4("viewMat", viewMat);
         lampShader.setMat4("projectionMat", projectionMat);
-        glm::mat4 modelMat = glm::mat4(1.0f);
-        modelMat = glm::translate(modelMat, lightPos);
-        modelMat = glm::scale(modelMat, glm::vec3(0.1f));
-        lampShader.setMat4("modelMat", modelMat);
+        //let's spin the lamps too
+        float lampRadius = 1.5f;
+        lightPos.x = sin(currentFrame) * lampRadius;
+        lightPos.y = sin(currentFrame) * lampRadius;
+        lightPos.z = cos(currentFrame) * lampRadius;
         glBindVertexArray(lightVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        for (unsigned int i = 0; i < 4; i++)
+        {
+            lampShader.setVec3("ambient", ambientColor);
+            lampShader.setVec3("diffuse", diffuseColor);
+            lampShader.setVec3("specular", glm::vec3(1.0f));
+            modelMat = glm::mat4(1.0f);
+            modelMat = glm::translate(modelMat, pointLightPositions[i] + glm::vec3(lightPos.x * (float)(i % 2), lightPos.y * (float)((i + 1) % 2), lightPos.z));
+            modelMat = glm::scale(modelMat, glm::vec3(0.2f));
+            lampShader.setMat4("modelMat", modelMat);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
         glBindVertexArray(0);
 
         // Swap the screen buffers
