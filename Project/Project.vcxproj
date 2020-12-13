@@ -165,6 +165,10 @@
     <None Include="..\shaders\lamp.ver" />
     <None Include="..\shaders\model_loading.frag" />
     <None Include="..\shaders\model_loading.ver" />
+    <None Include="..\shaders\outline.frag" />
+    <None Include="..\shaders\outline.ver" />
+    <None Include="..\shaders\window.frag" />
+    <None Include="..\shaders\window.ver" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

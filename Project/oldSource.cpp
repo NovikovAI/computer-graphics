@@ -2,25 +2,18 @@
 #include <cmath>
 #include <string>
 
-// GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
-
-// GLFW
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-//GLM
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-// Other includes
 #include "Shader.h"
 #include "Camera.h"
 #include "stb_image.h"
 
-//Global parameters
-//====================================================
+//====================GLOBAL==========================
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
 //keyboard related
@@ -36,9 +29,7 @@ glm::vec3 lightPos(1.0f, 1.0f, 1.0f);
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 //====================================================
-
-
-// Is called whenever a key is pressed/released via GLFW
+//======================================FUNCTIONS==================================================
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
     std::cout<<key<<std::endl;
@@ -63,7 +54,9 @@ void do_movements(){
     if (keys[GLFW_KEY_D])
         camera.ProcessKeyboard(RIGHT, deltaTime);
     if (keys[GLFW_KEY_R]) {
-        camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));//this is the vector from the first camera constructor so this is VERY bad thing to do(also known as THE CRUTCH)
+        camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));   //this is the vector from the first camera
+                                                        //constructor so this is VERY bad thing to
+                                                        //do(also known as THE CRUTCH)
     }
 }
 
@@ -125,23 +118,22 @@ unsigned int loadTexture(char const* path)
 
     return textureID;
 }
+//=================================================================================================
 
 int main()
 {
     //Init GLFW
     if (!glfwInit())
         return -1;
-    // Set all the required options for GLFW
-    //Настройка GLFW
-    //Задается минимальная требуемая версия OpenGL. 
-    //Мажорная 
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    //Минорная
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    //Установка профайла для которого создается контекст
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    //Выключение возможности изменения размера окна
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
 
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Graphics", NULL, NULL);
     if (window == NULL)
@@ -152,32 +144,31 @@ int main()
     }
     glfwMakeContextCurrent(window);
 
-    // Set the required callback functions
     glfwSetKeyCallback(window, key_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
-    //GLFW options
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
+
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    // Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
-    glewExperimental = GL_TRUE;
-    // Initialize GLEW to setup the OpenGL Function pointers
-    glewInit();
+    stbi_set_flip_vertically_on_load(true);
 
-    // Define the viewport dimensions
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
 
-    //OpenGL options
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
 
     //Build and compile our shader programs
     Shader myShader("../shaders/default.ver", "../shaders/default.frag");
     Shader lampShader("../shaders/lamp.ver", "../shaders/lamp.frag");
 
-    // Set up vertex data (and buffer(s)) and attribute pointers
     GLfloat vertices[] = {
     //Position            //TextureCoord    //Normals
     -0.5f, -0.5f, -0.5f,    0.0f, 0.0f,    0.0f, 0.0f, -1.0f,
@@ -247,10 +238,8 @@ int main()
 
     glGenVertexArrays(1, &containerVAO);
     glGenBuffers(1, &VBO);
-    // Bind the Vertex Array Object first, then bind and set vertex buffer(s) and attribute pointer(s).
     glBindVertexArray(containerVAO);
 
-    //VBO in containerVAO-start
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
@@ -264,10 +253,8 @@ int main()
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0); // Note that this is allowed, the call to glVertexAttribPointer registered VBO as the currently bound vertex buffer object so afterwards we can safely unbind
-    //VBO in containerVAO-end
-
-    glBindVertexArray(0); // Unbind VAO (it's always a good thing to unbind any buffer/array to prevent strange bugs)
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     GLuint lightVAO;
     glGenVertexArrays(1, &lightVAO);
@@ -277,7 +264,6 @@ int main()
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
     
-    //Create and load textures
     unsigned int diffuseMap = loadTexture("../textures/container2.png");
     unsigned int specularMap = loadTexture("../textures/container2_specular.png");
     unsigned int emissionMap = loadTexture("../textures/matrix.jpg");
@@ -290,7 +276,6 @@ int main()
 
     glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done to not F up
 
-    //Game loop
     while (!glfwWindowShouldClose(window))
     {
         // Calculate deltatime of current frame
@@ -298,14 +283,11 @@ int main()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
         glfwPollEvents();
         do_movements();
 
-        //render
-        // Clear the colorbuffer
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         
         //Activate shader
         myShader.Use();
@@ -409,16 +391,12 @@ int main()
         }
         glBindVertexArray(0);
 
-        // Swap the screen buffers
         glfwSwapBuffers(window);
     }
 
-    // Properly de-allocate all resources once they've outlived their purpose
     glDeleteVertexArrays(1, &containerVAO);
     glDeleteBuffers(1, &VBO);
-    //glDeleteBuffers(1, &EBO);
 
-    // Terminate GLFW, clearing any resources allocated by GLFW.
     glfwTerminate();
     return 0;
 }

@@ -61,5 +61,17 @@
     <None Include="..\shaders\model_loading.frag">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="..\shaders\outline.ver">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\outline.frag">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\window.ver">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\window.frag">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -29,6 +29,7 @@ struct PointLight {
 };
 
 struct Spotlight {
+    bool enabled;
     vec3 position;
     vec3 direction;
     float cutOff;
@@ -67,6 +68,8 @@ uniform float time;
 //====================================FUNCTIONS===============================================
 vec3 CalculateDirectLight(DirectLight light, vec3 normal, vec3 viewDir)
 {
+    vec3 resLight = vec3(0.0, 0.0, 0.0);
+
     vec3 lightDir = normalize(-light.direction);
     //diffuse component
     float diff = max(dot(normal, lightDir), 0.0);
@@ -78,11 +81,15 @@ vec3 CalculateDirectLight(DirectLight light, vec3 normal, vec3 viewDir)
     vec3 diffuse = light.diffuse * diff * vec3(texture(material.diffuse, texCoords));
     vec3 specular = light.specular * spec * vec3(texture(material.specular, texCoords));
     
-    return (ambient + diffuse + specular);
+    resLight = resLight + ambient + diffuse + specular;
+    
+    return resLight;
 }
 
 vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 {
+    vec3 resLight = vec3(0.0, 0.0, 0.0);
+    
     vec3 lightDir = normalize(light.position - fragPos);
     //diffuse component
     float diff = max(dot(normal, lightDir), 0.0);
@@ -102,11 +109,15 @@ vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewD
     diffuse *= attenuation;
     specular *= attenuation;
 
-    return (ambient + diffuse + specular);
+    resLight = resLight + ambient + diffuse + specular;
+
+    return resLight;
 }
 
 vec3 CalculateSpotlight(Spotlight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 {
+    vec3 resLight = vec3(0.0, 0.0, 0.0);
+
     vec3 lightDir = normalize(light.position - fragPos);
     //diffuse component
     float diff = max(dot(normal, lightDir), 0.0);
@@ -130,7 +141,9 @@ vec3 CalculateSpotlight(Spotlight light, vec3 normal, vec3 fragPos, vec3 viewDir
     diffuse *= attenuation * intensity;
     specular *= attenuation * intensity;
 
-    return (ambient + diffuse + specular);
+    resLight = resLight + ambient + diffuse + specular;
+    
+    return resLight;
 }
 //============================================================================================
 
@@ -144,8 +157,8 @@ void main()
 
     for (int i =0; i < NUM_OF_POINT_LIGHTS; i++)
         result += CalculatePointLight(pointLights[i], nNormal, FragmentPos, viewDir);
-
-    result += CalculateSpotlight(spotlight, nNormal, FragmentPos, viewDir);
+    if (spotlight.enabled)
+        result += CalculateSpotlight(spotlight, nNormal, FragmentPos, viewDir);
 
     //emission
     vec3 emission = vec3(0.0);
