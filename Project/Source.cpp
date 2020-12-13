@@ -269,11 +269,8 @@ int main()
     //and windows
     std::vector<glm::vec3> windows
     {
-        glm::vec3(-1.5f, 0.0f, -0.48f),
-        glm::vec3(1.5f, 0.0f, 0.51f),
-        glm::vec3(0.0f, 0.0f, 0.7f),
-        glm::vec3(-0.3f, 0.0f, -2.3f),
-        glm::vec3(0.5f, 0.0f, -0.6f)
+        glm::vec3(-1.5f, 1.3f, -0.48f),
+        glm::vec3(1.5f, 3.0f, 0.51f),
     };
  
     GLuint VBO, containerVAO;
@@ -520,11 +517,13 @@ int main()
         glBindVertexArray(transparentVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, windowTexture);
+        windowShader.setMat4("viewMat", viewMat);
+        windowShader.setMat4("projectionMat", projectionMat);
         for (std::map<float, glm::vec3>::reverse_iterator it = sortedWindows.rbegin(); it != sortedWindows.rend(); ++it)
         {
             modelMat = glm::mat4(1.0f);
             modelMat = glm::translate(modelMat, it->second);
-            myShader.setMat4("modelMat", modelMat);
+            windowShader.setMat4("modelMat", modelMat);
             glDrawArrays(GL_TRIANGLES, 0, 6);
         }
         glBindVertexArray(0);
