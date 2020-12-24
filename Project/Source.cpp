@@ -123,6 +123,38 @@ unsigned int loadTexture(char const* path)
 
     return textureID;
 }
+
+unsigned int loadCubemap(std::vector<std::string> faces)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    for (unsigned int i = 0; i < faces.size(); i++)
+    {
+        unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        if (data)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+            );
+            stbi_image_free(data);
+        }
+        else
+        {
+            std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
+}
 //=================================================================================================
 
 int main()
@@ -161,8 +193,6 @@ int main()
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    stbi_set_flip_vertically_on_load(true);
-
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
@@ -179,8 +209,53 @@ int main()
     Shader outlineShader("../shaders/outline.ver", "../shaders/outline.frag");
     Shader lampShader("../shaders/lamp.ver", "../shaders/lamp.frag");
     Shader windowShader("../shaders/window.ver", "../shaders/window.frag");
+    Shader skyboxShader("../shaders/skybox.ver", "../shaders/skybox.frag");
 
-    GLfloat vertices[] = {
+    float skyboxVertices[] = {
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f
+    };
+
+    float vertices[] = {
          //Position            //TextureCoord    //Normals
         -0.5f, -0.5f, -0.5f,    0.0f, 0.0f,    0.0f, 0.0f, -1.0f,
          0.5f,  0.5f, -0.5f,    1.0f, 1.0f,    0.0f, 0.0f, -1.0f,
@@ -249,11 +324,11 @@ int main()
     //different WORLD posistions for cubes
     glm::vec3 cubePositions[] = {
         glm::vec3(0.0f,  0.0f,  0.0f),
-        glm::vec3(2.0f,  5.0f, -15.0f),
-        glm::vec3(-1.5f, -2.2f, -2.5f),
-        glm::vec3(-3.8f, -2.0f, -12.3f),
-        glm::vec3(2.4f, -0.4f, -3.5f),
-        glm::vec3(-1.7f,  3.0f, -7.5f),
+        //glm::vec3(2.0f,  5.0f, -15.0f),
+        //glm::vec3(-1.5f, -2.2f, -2.5f),
+        //glm::vec3(-3.8f, -2.0f, -12.3f),
+        //glm::vec3(2.4f, -0.4f, -3.5f),
+        //glm::vec3(-1.7f,  3.0f, -7.5f),
         glm::vec3(1.3f, -2.0f, -2.5f),
         glm::vec3(1.5f,  2.0f, -2.5f),
         glm::vec3(1.5f,  0.2f, -1.5f),
@@ -272,8 +347,21 @@ int main()
         glm::vec3(-1.5f, 1.3f, -0.48f),
         glm::vec3(1.5f, 3.0f, 0.51f),
     };
- 
-    GLuint VBO, containerVAO;
+    //skybox locatoins and load
+    std::vector<std::string> skyboxFaces
+    {
+        "../textures/skybox/right.jpg",
+        "../textures/skybox/left.jpg",
+        "../textures/skybox/top.jpg",
+        "../textures/skybox/bottom.jpg",
+        "../textures/skybox/front.jpg",
+        "../textures/skybox/back.jpg"
+    };
+    unsigned int cubemapTexture = loadCubemap(skyboxFaces);
+
+    stbi_set_flip_vertically_on_load(true);
+
+    unsigned int VBO, containerVAO;
 
     glGenVertexArrays(1, &containerVAO);
     glGenBuffers(1, &VBO);
@@ -321,11 +409,21 @@ int main()
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
 
-    GLuint lightVAO;
+    unsigned int lightVAO;
     glGenVertexArrays(1, &lightVAO);
     glBindVertexArray(lightVAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+
+    unsigned int skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
     
@@ -342,6 +440,8 @@ int main()
     myShader.setInt("material.emission", 2);
     windowShader.Use();
     windowShader.setInt("windowTexture", 0);
+    skyboxShader.Use();
+    skyboxShader.setInt("skybox", 0);
 
     glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done to not F up
 
@@ -365,6 +465,13 @@ int main()
 
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        // Create transformation
+        glm::mat4 viewMat = glm::mat4(1.0f);
+        glm::mat4 projectionMat = glm::mat4(1.0f);
+        glm::mat4 modelMat = glm::mat4(1.0f);
+        viewMat = camera.GetViewMatrix();
+        projectionMat = glm::perspective(glm::radians(camera.Zoom), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
         
         //Activate shader
         myShader.Use();
@@ -413,13 +520,6 @@ int main()
         myShader.setVec3("spotlight.diffuse", glm::vec3(1.0f));
         myShader.setVec3("spotlight.specular", glm::vec3(1.0f));
 
-        // Create transformation
-        glm::mat4 viewMat = glm::mat4(1.0f);
-        glm::mat4 projectionMat = glm::mat4(1.0f);
-        glm::mat4 modelMat = glm::mat4(1.0f);
-        viewMat = camera.GetViewMatrix();
-        projectionMat = glm::perspective(glm::radians(camera.Zoom), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
-
         // Get matrices' uniform location and set matrices
         myShader.setMat4("viewMat", viewMat);
         myShader.setMat4("projectionMat", projectionMat);
@@ -453,7 +553,7 @@ int main()
         glStencilMask(0xFF);
         
         glBindVertexArray(containerVAO);
-        for (unsigned int i = 0; i < 10; i++)
+        for (unsigned int i = 0; i < 5; i++)
         {
             glm::mat4 modelMat = glm::mat4(1.0f);
             modelMat = glm::translate(modelMat, cubePositions[i]);
@@ -476,7 +576,7 @@ int main()
         outlineShader.setMat4("projectionMat", projectionMat);
 
         glBindVertexArray(containerVAO);
-        for (unsigned int i = 0; i < 10; i++)
+        for (unsigned int i = 0; i < 5; i++)
         {
             glm::mat4 modelMat = glm::mat4(1.0f);
             modelMat = glm::translate(modelMat, cubePositions[i]);
@@ -513,10 +613,24 @@ int main()
         }
         glBindVertexArray(0);
 
+        //draw skybox
+        glDepthFunc(GL_LEQUAL);
+        skyboxShader.Use();
+        viewMat = glm::mat4(glm::mat3(camera.GetViewMatrix()));     //we will F' up view matrix to get rid of translation, but we will only do it for skybox
+        skyboxShader.setMat4("viewMat", viewMat);
+        skyboxShader.setMat4("projectionMat", projectionMat);
+        glBindVertexArray(skyboxVAO);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS);
+
+        //draw windows
         windowShader.Use();
         glBindVertexArray(transparentVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, windowTexture);
+        viewMat = camera.GetViewMatrix();               //here we are "restoring" the "right" view matrix
         windowShader.setMat4("viewMat", viewMat);
         windowShader.setMat4("projectionMat", projectionMat);
         for (std::map<float, glm::vec3>::reverse_iterator it = sortedWindows.rbegin(); it != sortedWindows.rend(); ++it)
@@ -535,9 +649,11 @@ int main()
     glDeleteVertexArrays(1, &planeVAO);
     glDeleteVertexArrays(1, &transparentVAO);
     glDeleteVertexArrays(1, &lightVAO);
+    glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &transparentVBO);
     glDeleteBuffers(1, &planeVBO);
+    glDeleteBuffers(1, &skyboxVBO);
 
     glfwTerminate();
     return 0;
