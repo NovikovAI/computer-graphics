@@ -163,6 +163,8 @@
     <None Include="..\shaders\default.ver" />
     <None Include="..\shaders\lamp.frag" />
     <None Include="..\shaders\lamp.ver" />
+    <None Include="..\shaders\mirrorCube.frag" />
+    <None Include="..\shaders\mirrorCube.ver" />
     <None Include="..\shaders\model_loading.frag" />
     <None Include="..\shaders\model_loading.ver" />
     <None Include="..\shaders\outline.frag" />

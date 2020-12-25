@@ -210,6 +210,7 @@ int main()
     Shader lampShader("../shaders/lamp.ver", "../shaders/lamp.frag");
     Shader windowShader("../shaders/window.ver", "../shaders/window.frag");
     Shader skyboxShader("../shaders/skybox.ver", "../shaders/skybox.frag");
+    Shader mirrorShader("../shaders/mirrorCube.ver", "../shaders/mirrorCube.frag");
 
     float skyboxVertices[] = {
     -1.0f,  1.0f, -1.0f,
@@ -371,13 +372,13 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     //Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)0);
     glEnableVertexAttribArray(0);
     //Texture coordinates attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
     //Normals attribute
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -413,7 +414,7 @@ int main()
     glGenVertexArrays(1, &lightVAO);
     glBindVertexArray(lightVAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)0);
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
 
@@ -423,10 +424,21 @@ int main()
     glBindVertexArray(skyboxVAO);
     glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (GLvoid*)0);
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
     
+    unsigned int mirrorVAO;
+    glGenVertexArrays(1, &mirrorVAO);
+    glBindVertexArray(mirrorVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
     unsigned int diffuseMap = loadTexture("../textures/container2.png");
     unsigned int specularMap = loadTexture("../textures/container2_specular.png");
     unsigned int emissionMap = loadTexture("../textures/matrix.jpg");
@@ -620,17 +632,33 @@ int main()
         skyboxShader.setMat4("viewMat", viewMat);
         skyboxShader.setMat4("projectionMat", projectionMat);
         glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
         glDepthFunc(GL_LESS);
+        viewMat = camera.GetViewMatrix();               //here we are "restoring" the "right" view matrix
+
+        //draw mirror cube
+        mirrorShader.Use();
+        glm::mat4 mirrorModelMat = glm::mat4(1.0f);
+        mirrorModelMat = glm::translate(mirrorModelMat, glm::vec3(-5.0f, 3.0f, 1.0f));
+        mirrorModelMat = glm::scale(mirrorModelMat, glm::vec3(0.7f));
+        mirrorShader.setMat4("modelMat", mirrorModelMat);
+        mirrorShader.setMat4("viewMat", viewMat);
+        mirrorShader.setMat4("projectionMat", projectionMat);
+        mirrorShader.setVec3("cameraPos", camera.Position);
+        glBindVertexArray(mirrorVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
 
         //draw windows
         windowShader.Use();
         glBindVertexArray(transparentVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, windowTexture);
-        viewMat = camera.GetViewMatrix();               //here we are "restoring" the "right" view matrix
         windowShader.setMat4("viewMat", viewMat);
         windowShader.setMat4("projectionMat", projectionMat);
         for (std::map<float, glm::vec3>::reverse_iterator it = sortedWindows.rbegin(); it != sortedWindows.rend(); ++it)
@@ -650,6 +678,7 @@ int main()
     glDeleteVertexArrays(1, &transparentVAO);
     glDeleteVertexArrays(1, &lightVAO);
     glDeleteVertexArrays(1, &skyboxVAO);
+    glDeleteVertexArrays(1, &mirrorVAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &transparentVBO);
     glDeleteBuffers(1, &planeVBO);

@@ -79,5 +79,11 @@
     <None Include="..\shaders\skybox.frag">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="..\shaders\mirrorCube.ver">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\mirrorCube.frag">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
 </Project>
