@@ -85,5 +85,11 @@
     <None Include="..\shaders\mirrorCube.frag">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="..\shaders\shadow_mapping.ver">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\shadow_mapping.frag">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
 </Project>

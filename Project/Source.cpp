@@ -20,18 +20,20 @@ const GLuint WIDTH = 800, HEIGHT = 600;
 //keyboard related
 bool keys[1024];
 //camera related
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 1.0f, 3.0f));
 GLfloat lastX = (GLfloat)WIDTH / 2.0;
 GLfloat lastY = (GLfloat)HEIGHT / 2.0;
 bool firstMouse = true;
 //lighting
-glm::vec3 lightPos(1.0f, 1.0f, 1.0f);
+glm::vec3 directLightPos(-11.0f, -2.0f, -5.0f);
 bool globalSpotlightSwitch = false;
+bool showLampsAndTheirLight = false;
+const int numberOfPointLights = 2;
 // Deltatime-time between current frame and last frame
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 //====================================================
-//======================================FUNCTIONS==================================================
+//======================================FUNCTIONS======================================================================================================================================================
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
     std::cout<<key<<std::endl;
@@ -155,7 +157,185 @@ unsigned int loadCubemap(std::vector<std::string> faces)
 
     return textureID;
 }
-//=================================================================================================
+
+void drawFloor(const glm::mat4 projectionMat, const unsigned int planeVAO, Shader myShader, const unsigned int floorTexture)
+{
+    glm::mat4 modelMat = glm::mat4(1.0f);
+    glm::mat4 viewMat = camera.GetViewMatrix();
+
+    glStencilMask(0x00);
+
+    myShader.setMat4("viewMat", viewMat);
+    myShader.setMat4("projectionMat", projectionMat);
+    myShader.Use();
+    glBindVertexArray(planeVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, floorTexture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, floorTexture);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    modelMat = glm::translate(modelMat, glm::vec3(0.0f, -0.01f, 0.0f));
+    myShader.setMat4("modelMat", modelMat);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glStencilMask(0xFF);
+}
+
+void drawCubesAndOutline(const glm::mat4 projectionMat, const unsigned int containerVAO, Shader myShader, Shader outlineShader, glm::vec3* cubePositions,
+    const unsigned int diffuseMap, const unsigned int specularMap, const unsigned int emissionMap)
+{
+    glm::mat4 viewMat = camera.GetViewMatrix();
+
+    myShader.Use();
+    myShader.setMat4("viewMat", viewMat);
+    myShader.setMat4("projectionMat", projectionMat);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, diffuseMap);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, specularMap);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, emissionMap);
+
+    //Draw figures
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilMask(0xFF);
+
+    glBindVertexArray(containerVAO);
+    for (unsigned int i = 0; i < 5; i++)
+    {
+        glm::mat4 modelMat = glm::mat4(1.0f);
+        modelMat = glm::translate(modelMat, cubePositions[i]);
+        myShader.setMat4("modelMat", modelMat);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
+    glBindVertexArray(0);
+
+    //draw outline
+    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+    glStencilMask(0x00);
+    //glDisable(GL_DEPTH_TEST);
+    outlineShader.Use();
+    float scale = 1.005f;
+
+    outlineShader.setVec3("outlineColor", glm::vec3(1.0f, 0.0f, 0.0f));
+    outlineShader.setMat4("viewMat", viewMat);
+    outlineShader.setMat4("projectionMat", projectionMat);
+
+    glBindVertexArray(containerVAO);
+    for (unsigned int i = 0; i < 5; i++)
+    {
+        glm::mat4 modelMat = glm::mat4(1.0f);
+        modelMat = glm::translate(modelMat, cubePositions[i]);
+        modelMat = glm::scale(modelMat, glm::vec3(scale));
+        outlineShader.setMat4("modelMat", modelMat);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
+    glBindVertexArray(0);
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilMask(0xFF);
+}
+
+void drawLamps(const glm::mat4 projectionMat, const unsigned int lightVAO, Shader lampShader, const glm::vec3* pointLightPositions, const glm::vec3 ambientColor,
+    const glm::vec3 diffuseColor)
+{
+    glm::mat4 viewMat = camera.GetViewMatrix();
+    glm::mat4 modelMat = glm::mat4(1.0f);
+
+    lampShader.Use();
+    lampShader.setMat4("viewMat", viewMat);
+    lampShader.setMat4("projectionMat", projectionMat);
+    glBindVertexArray(lightVAO);
+    for (unsigned int i = 0; i < 2; i++)
+    {
+        lampShader.setVec3("ambient", ambientColor);
+        lampShader.setVec3("diffuse", diffuseColor);
+        lampShader.setVec3("specular", glm::vec3(1.0f));
+        modelMat = glm::mat4(1.0f);
+        modelMat = glm::translate(modelMat, pointLightPositions[i]);
+        modelMat = glm::scale(modelMat, glm::vec3(0.2f));
+        lampShader.setMat4("modelMat", modelMat);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
+    glBindVertexArray(0);
+}
+
+void drawSkyboxAndMirrorCube(const glm::mat4 projectionMat, const unsigned int skyboxVAO, const unsigned int mirrorVAO, Shader skyboxShader, Shader mirrorShader,
+    const unsigned int cubemapTexture)
+{
+    glm::mat4 viewMat = glm::mat4(1.0f);
+    glm::mat4 modelMat = glm::mat4(1.0f);
+
+    //draw skybox
+    glDepthFunc(GL_LEQUAL);
+    skyboxShader.Use();
+    viewMat = glm::mat4(glm::mat3(camera.GetViewMatrix()));     //we will F' up view matrix to get rid of translation, but we will only do it for skybox
+    skyboxShader.setMat4("viewMat", viewMat);
+    skyboxShader.setMat4("projectionMat", projectionMat);
+    glBindVertexArray(skyboxVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    glDepthFunc(GL_LESS);
+    viewMat = camera.GetViewMatrix();               //here we are "restoring" the "right" view matrix
+
+    //draw mirror cube
+    mirrorShader.Use();
+    glm::mat4 mirrorModelMat = glm::mat4(1.0f);
+    mirrorModelMat = glm::translate(mirrorModelMat, glm::vec3(-5.0f, 3.0f, 1.0f));
+    mirrorModelMat = glm::scale(mirrorModelMat, glm::vec3(0.7f));
+    mirrorShader.setMat4("modelMat", mirrorModelMat);
+    mirrorShader.setMat4("viewMat", viewMat);
+    mirrorShader.setMat4("projectionMat", projectionMat);
+    mirrorShader.setVec3("cameraPos", camera.Position);
+    glBindVertexArray(mirrorVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+}
+
+void drawWindows(const glm::mat4 projectionMat, const unsigned int transparentVAO, Shader windowShader, std::vector<glm::vec3> windows,
+    const unsigned int windowTexture)
+{
+    glm::mat4 viewMat = camera.GetViewMatrix();
+    glm::mat4 modelMat = glm::mat4(1.0f);
+
+    //sorting windows by distance
+    std::map<float, glm::vec3> sortedWindows;
+    for (unsigned int i = 0; i < windows.size(); i++)
+    {
+        float distance = glm::length(camera.Position - windows[i]);
+        sortedWindows[distance] = windows[i];
+    }
+
+    //draw windows
+    windowShader.Use();
+    glBindVertexArray(transparentVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, windowTexture);
+    windowShader.setMat4("viewMat", viewMat);
+    windowShader.setMat4("projectionMat", projectionMat);
+    for (std::map<float, glm::vec3>::reverse_iterator it = sortedWindows.rbegin(); it != sortedWindows.rend(); ++it)
+    {
+        modelMat = glm::mat4(1.0f);
+        modelMat = glm::translate(modelMat, it->second);
+        windowShader.setMat4("modelMat", modelMat);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+    glBindVertexArray(0);
+}
+
+//=====================================================================================================================================================================================================
 
 int main()
 {
@@ -211,6 +391,7 @@ int main()
     Shader windowShader("../shaders/window.ver", "../shaders/window.frag");
     Shader skyboxShader("../shaders/skybox.ver", "../shaders/skybox.frag");
     Shader mirrorShader("../shaders/mirrorCube.ver", "../shaders/mirrorCube.frag");
+    Shader simpleDepthShader("../shaders/shadow_mapping.ver", "../shaders/shadow_mapping.frag");
 
     float skyboxVertices[] = {
     -1.0f,  1.0f, -1.0f,
@@ -362,28 +543,23 @@ int main()
 
     stbi_set_flip_vertically_on_load(true);
 
+    //for cubes
     unsigned int VBO, containerVAO;
-
     glGenVertexArrays(1, &containerVAO);
     glGenBuffers(1, &VBO);
     glBindVertexArray(containerVAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    //Position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)0);
     glEnableVertexAttribArray(0);
-    //Texture coordinates attribute
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    //Normals attribute
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
-
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    //for floor
     unsigned int planeVAO, planeVBO;
     glGenVertexArrays(1, &planeVAO);
     glGenBuffers(1, &planeVBO);
@@ -398,6 +574,7 @@ int main()
     glEnableVertexAttribArray(2);
     glBindVertexArray(0);
 
+    //for windows
     unsigned int transparentVAO, transparentVBO;
     glGenVertexArrays(1, &transparentVAO);
     glGenBuffers(1, &transparentVBO);
@@ -410,6 +587,7 @@ int main()
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
 
+    //for lamps
     unsigned int lightVAO;
     glGenVertexArrays(1, &lightVAO);
     glBindVertexArray(lightVAO);
@@ -418,6 +596,7 @@ int main()
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
 
+    //for skybox
     unsigned int skyboxVAO, skyboxVBO;
     glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
@@ -428,6 +607,7 @@ int main()
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
     
+    //for mirror cubes
     unsigned int mirrorVAO;
     glGenVertexArrays(1, &mirrorVAO);
     glBindVertexArray(mirrorVAO);
@@ -439,6 +619,26 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    //framebuffer for shadows
+    const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+    unsigned int shadowMapFBO;
+    glGenFramebuffers(1, &shadowMapFBO);
+    unsigned int shadowMap;
+    glGenTextures(1, &shadowMap);
+    glBindTexture(GL_TEXTURE_2D, shadowMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     unsigned int diffuseMap = loadTexture("../textures/container2.png");
     unsigned int specularMap = loadTexture("../textures/container2_specular.png");
     unsigned int emissionMap = loadTexture("../textures/matrix.jpg");
@@ -446,8 +646,8 @@ int main()
     unsigned int windowTexture = loadTexture("../textures/window.png");
 
     //we need to set up proper texture unit
-    myShader.Use(); // не забыть активировать шейдер перед настройкой uniform-переменных 
-    myShader.setInt("material.diffuse", 0); //it only needs to be done once
+    myShader.Use();
+    myShader.setInt("material.diffuse", 0);
     myShader.setInt("material.specular", 1);
     myShader.setInt("material.emission", 2);
     windowShader.Use();
@@ -467,58 +667,48 @@ int main()
         glfwPollEvents();
         do_movements();
 
-        //sorting windows by distance
-        std::map<float, glm::vec3> sortedWindows;
-        for (unsigned int i = 0; i < windows.size(); i++)
-        {
-            float distance = glm::length(camera.Position - windows[i]);
-            sortedWindows[distance] = windows[i];
-        }
-
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         // Create transformation
-        glm::mat4 viewMat = glm::mat4(1.0f);
         glm::mat4 projectionMat = glm::mat4(1.0f);
+        glm::mat4 viewMat = glm::mat4(1.0f);
         glm::mat4 modelMat = glm::mat4(1.0f);
-        viewMat = camera.GetViewMatrix();
         projectionMat = glm::perspective(glm::radians(camera.Zoom), (GLfloat)WIDTH / (GLfloat)HEIGHT, 0.1f, 100.0f);
+        viewMat = camera.GetViewMatrix();
         
-        //Activate shader
         myShader.Use();
-
         //passing all sorts of values to the shader
         myShader.setVec3("viewPos", camera.Position.x, camera.Position.y, camera.Position.z);
         myShader.setFloat("time", 5.0 * currentFrame);
         //Material
         myShader.setFloat("material.shininess", 64.0f);
         //Lights
-        
         glm::vec3 lightColor = glm::vec3(1.0f);
-        //lightColor.x = sin(currentFrame * 0.3f);
-        //lightColor.y = sin(currentFrame * 0.5f);
-        //lightColor.z = sin(currentFrame * 0.7f);
         glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f); // decrease the influence
         glm::vec3 ambientColor = lightColor * glm::vec3(0.2f); // low influence
-
         //direction light
-        myShader.setVec3("directLight.direction", -0.2f, -1.0f, -0.3f);
+        myShader.setVec3("directLight.direction", directLightPos);
         myShader.setVec3("directLight.ambient", glm::vec3(0.05f));
-        myShader.setVec3("directLight.diffuse", glm::vec3(0.4f));
-        myShader.setVec3("directLight.specular", glm::vec3(0.5f));
+        myShader.setVec3("directLight.diffuse", glm::vec3(0.7f));
+        myShader.setVec3("directLight.specular", glm::vec3(1.0f));
         // four point lights
-        for (unsigned int i = 0; i < 4; i++)
+        if (showLampsAndTheirLight)
         {
-            std::string curName = "pointLights[" + std::to_string(i) + std::string(1, ']');
-            myShader.setVec3(curName + ".position", pointLightPositions[i]);
-            myShader.setFloat(curName + ".constant", 1.0f);
-            myShader.setFloat(curName + ".linear", 0.09f);
-            myShader.setFloat(curName + ".quadratic", 0.032f);
-            myShader.setVec3(curName + ".ambient", ambientColor);
-            myShader.setVec3(curName + ".diffuse", diffuseColor);
-            myShader.setVec3(curName + ".specular", glm::vec3(1.0f));
+            for (unsigned int i = 0; i < numberOfPointLights; i++)
+            {
+                std::string curName = "pointLights[" + std::to_string(i) + std::string(1, ']');
+                myShader.setVec3(curName + ".position", pointLightPositions[i]);
+                myShader.setFloat(curName + ".constant", 1.0f);
+                myShader.setFloat(curName + ".linear", 0.09f);
+                myShader.setFloat(curName + ".quadratic", 0.032f);
+                myShader.setVec3(curName + ".ambient", ambientColor);
+                myShader.setVec3(curName + ".diffuse", diffuseColor);
+                myShader.setVec3(curName + ".specular", glm::vec3(1.0f));
+            }
         }
+        myShader.setBool("lampsLightEnabled", showLampsAndTheirLight);
+
         //spotlight
         myShader.setBool("spotlight.enabled", globalSpotlightSwitch);
         myShader.setVec3("spotlight.position", camera.Position);
@@ -532,143 +722,16 @@ int main()
         myShader.setVec3("spotlight.diffuse", glm::vec3(1.0f));
         myShader.setVec3("spotlight.specular", glm::vec3(1.0f));
 
-        // Get matrices' uniform location and set matrices
-        myShader.setMat4("viewMat", viewMat);
-        myShader.setMat4("projectionMat", projectionMat);
+        drawFloor(projectionMat, planeVAO, myShader, floorTexture);
 
-        //floor
-        glStencilMask(0x00);
+        drawCubesAndOutline(projectionMat, containerVAO, myShader, outlineShader, cubePositions, diffuseMap, specularMap, emissionMap);
 
-        glBindVertexArray(planeVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, floorTexture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, floorTexture);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        modelMat = glm::translate(modelMat, glm::vec3(0.0f, -0.01f, 0.0f));
-        myShader.setMat4("modelMat", modelMat);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glBindVertexArray(0);
-        glBindTexture(GL_TEXTURE_2D, 0);
+        if (showLampsAndTheirLight)
+            drawLamps(projectionMat, lightVAO, lampShader, pointLightPositions, ambientColor, diffuseColor);
 
-        // Bind Texture
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, specularMap);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, emissionMap);
+        drawSkyboxAndMirrorCube(projectionMat, skyboxVAO, mirrorVAO, skyboxShader, mirrorShader, cubemapTexture);
 
-        //Draw figures
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0xFF);
-        
-        glBindVertexArray(containerVAO);
-        for (unsigned int i = 0; i < 5; i++)
-        {
-            glm::mat4 modelMat = glm::mat4(1.0f);
-            modelMat = glm::translate(modelMat, cubePositions[i]);
-            //GLfloat cubeAngle = 20.0f * i;
-            //modelMat = glm::rotate(modelMat, currentFrame * glm::radians(55.0f) + glm::radians(cubeAngle), glm::vec3(1.0f, 0.3f, 0.5f));
-            myShader.setMat4("modelMat", modelMat);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-        glBindVertexArray(0);
-
-        //draw outline
-        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-        //glDisable(GL_DEPTH_TEST);
-        outlineShader.Use();
-        float scale = 1.005f;
-
-        outlineShader.setVec3("outlineColor", glm::vec3(1.0f, 0.0f, 0.0f));
-        outlineShader.setMat4("viewMat", viewMat);
-        outlineShader.setMat4("projectionMat", projectionMat);
-
-        glBindVertexArray(containerVAO);
-        for (unsigned int i = 0; i < 5; i++)
-        {
-            glm::mat4 modelMat = glm::mat4(1.0f);
-            modelMat = glm::translate(modelMat, cubePositions[i]);
-            modelMat = glm::scale(modelMat, glm::vec3(scale));
-            outlineShader.setMat4("modelMat", modelMat);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-        glBindVertexArray(0);
-
-        //draw lighting
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0xFF);
-        glEnable(GL_DEPTH_TEST);
-
-        lampShader.Use();
-        lampShader.setMat4("viewMat", viewMat);
-        lampShader.setMat4("projectionMat", projectionMat);
-        //let's spin the lamps too
-        //float lampRadius = 1.5f;
-        //lightPos.x = sin(currentFrame) * lampRadius;
-        //lightPos.y = sin(currentFrame) * lampRadius;
-        //lightPos.z = cos(currentFrame) * lampRadius;
-        glBindVertexArray(lightVAO);
-        for (unsigned int i = 0; i < 2; i++)
-        {
-            lampShader.setVec3("ambient", ambientColor);
-            lampShader.setVec3("diffuse", diffuseColor);
-            lampShader.setVec3("specular", glm::vec3(1.0f));
-            modelMat = glm::mat4(1.0f);
-            modelMat = glm::translate(modelMat, pointLightPositions[i]);// + glm::vec3(lightPos.x * (float)(i % 2), lightPos.y * (float)((i + 1) % 2), lightPos.z));
-            modelMat = glm::scale(modelMat, glm::vec3(0.2f));
-            lampShader.setMat4("modelMat", modelMat);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-        glBindVertexArray(0);
-
-        //draw skybox
-        glDepthFunc(GL_LEQUAL);
-        skyboxShader.Use();
-        viewMat = glm::mat4(glm::mat3(camera.GetViewMatrix()));     //we will F' up view matrix to get rid of translation, but we will only do it for skybox
-        skyboxShader.setMat4("viewMat", viewMat);
-        skyboxShader.setMat4("projectionMat", projectionMat);
-        glBindVertexArray(skyboxVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-        glDepthFunc(GL_LESS);
-        viewMat = camera.GetViewMatrix();               //here we are "restoring" the "right" view matrix
-
-        //draw mirror cube
-        mirrorShader.Use();
-        glm::mat4 mirrorModelMat = glm::mat4(1.0f);
-        mirrorModelMat = glm::translate(mirrorModelMat, glm::vec3(-5.0f, 3.0f, 1.0f));
-        mirrorModelMat = glm::scale(mirrorModelMat, glm::vec3(0.7f));
-        mirrorShader.setMat4("modelMat", mirrorModelMat);
-        mirrorShader.setMat4("viewMat", viewMat);
-        mirrorShader.setMat4("projectionMat", projectionMat);
-        mirrorShader.setVec3("cameraPos", camera.Position);
-        glBindVertexArray(mirrorVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-
-        //draw windows
-        windowShader.Use();
-        glBindVertexArray(transparentVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, windowTexture);
-        windowShader.setMat4("viewMat", viewMat);
-        windowShader.setMat4("projectionMat", projectionMat);
-        for (std::map<float, glm::vec3>::reverse_iterator it = sortedWindows.rbegin(); it != sortedWindows.rend(); ++it)
-        {
-            modelMat = glm::mat4(1.0f);
-            modelMat = glm::translate(modelMat, it->second);
-            windowShader.setMat4("modelMat", modelMat);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-        }
-        glBindVertexArray(0);
+        drawWindows(projectionMat, transparentVAO, windowShader, windows, windowTexture);
 
         glfwSwapBuffers(window);
     }

@@ -169,6 +169,8 @@
     <None Include="..\shaders\model_loading.ver" />
     <None Include="..\shaders\outline.frag" />
     <None Include="..\shaders\outline.ver" />
+    <None Include="..\shaders\shadow_mapping.frag" />
+    <None Include="..\shaders\shadow_mapping.ver" />
     <None Include="..\shaders\skybox.frag" />
     <None Include="..\shaders\skybox.ver" />
     <None Include="..\shaders\window.frag" />
