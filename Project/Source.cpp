@@ -20,7 +20,7 @@ const GLuint WIDTH = 800, HEIGHT = 600;
 //keyboard related
 bool keys[1024];
 //camera related
-Camera camera(glm::vec3(0.0f, 1.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 GLfloat lastX = (GLfloat)WIDTH / 2.0;
 GLfloat lastY = (GLfloat)HEIGHT / 2.0;
 bool firstMouse = true;
@@ -64,6 +64,9 @@ void do_movements(){
         camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));   //this is the vector from the first camera
                                                         //constructor so this is VERY bad thing to
                                                         //do(also known as THE CRUTCH)
+    }
+    if (keys[GLFW_KEY_L]) {
+        camera = Camera(-directLightPos);
     }
 }
 
@@ -335,6 +338,53 @@ void drawWindows(const glm::mat4 projectionMat, const unsigned int transparentVA
     glBindVertexArray(0);
 }
 
+void drawSceneForShadows(Shader shader, const unsigned int planeVAO, const unsigned int containerVAO, glm::vec3 *cubePositions)
+{
+    //we will only need our floor
+    glm::mat4 modelMat = glm::mat4(1.0f);
+    modelMat = glm::translate(modelMat, glm::vec3(0.0f, -0.01f, 0.0f));
+    shader.setMat4("modelMat", modelMat);
+    glBindVertexArray(planeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    //and cubes
+    glBindVertexArray(containerVAO);
+    for (unsigned int i = 0; i < 5; i++)
+    {
+        modelMat = glm::mat4(1.0f);
+        modelMat = glm::translate(modelMat, cubePositions[i]);
+        shader.setMat4("modelMat", modelMat);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
+    glBindVertexArray(0);
+}
+/*
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+            // координаты        // текстурные координаты
+            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+             1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+             1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}*/
 //=====================================================================================================================================================================================================
 
 int main()
@@ -392,6 +442,7 @@ int main()
     Shader skyboxShader("../shaders/skybox.ver", "../shaders/skybox.frag");
     Shader mirrorShader("../shaders/mirrorCube.ver", "../shaders/mirrorCube.frag");
     Shader simpleDepthShader("../shaders/shadow_mapping.ver", "../shaders/shadow_mapping.frag");
+    //Shader debugDepthQuad("../shaders/3.1.3.debug_quad.ver", "../shaders/3.1.3.debug_quad.frag");    //DEBUG
 
     float skyboxVertices[] = {
     -1.0f,  1.0f, -1.0f,
@@ -513,7 +564,7 @@ int main()
         //glm::vec3(-1.7f,  3.0f, -7.5f),
         glm::vec3(1.3f, -2.0f, -2.5f),
         glm::vec3(1.5f,  2.0f, -2.5f),
-        glm::vec3(1.5f,  0.2f, -1.5f),
+        glm::vec3(1.5f,  0.7f, 0.0f),
         glm::vec3(-1.3f,  1.0f, -1.5f)
     };
     //and lights
@@ -650,6 +701,7 @@ int main()
     myShader.setInt("material.diffuse", 0);
     myShader.setInt("material.specular", 1);
     myShader.setInt("material.emission", 2);
+    myShader.setInt("shadowMap", 3);
     windowShader.Use();
     windowShader.setInt("windowTexture", 0);
     skyboxShader.Use();
@@ -722,17 +774,53 @@ int main()
         myShader.setVec3("spotlight.diffuse", glm::vec3(1.0f));
         myShader.setVec3("spotlight.specular", glm::vec3(1.0f));
 
+        //first we draw the scene to make shadow map
+        glm::mat4 lightProjection, lightView;
+        glm::mat4 lightSpaceMatrix;
+        float near_plane = 1.0f, far_plane = 20.0f;
+        //lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane); // обратите внимание, что если вы используете матрицу перспективной проекции, вам придется изменить положение света, так как текущего положения света недостаточно для отображения всей сцены
+        lightProjection = glm::ortho(-10.0f, 20.0f, -10.0f, 20.0f, near_plane, far_plane);
+        lightView = glm::lookAt(-directLightPos, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
+        lightSpaceMatrix = lightProjection * lightView;
+        
+        simpleDepthShader.Use();
+        simpleDepthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+
+        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        drawSceneForShadows(simpleDepthShader, planeVAO, containerVAO, cubePositions);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        //then we draw the scene normally
+        
+        glViewport(0, 0, WIDTH, HEIGHT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        myShader.Use();
+        myShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, shadowMap);
+
         drawFloor(projectionMat, planeVAO, myShader, floorTexture);
-
         drawCubesAndOutline(projectionMat, containerVAO, myShader, outlineShader, cubePositions, diffuseMap, specularMap, emissionMap);
-
         if (showLampsAndTheirLight)
             drawLamps(projectionMat, lightVAO, lampShader, pointLightPositions, ambientColor, diffuseColor);
-
         drawSkyboxAndMirrorCube(projectionMat, skyboxVAO, mirrorVAO, skyboxShader, mirrorShader, cubemapTexture);
-
         drawWindows(projectionMat, transparentVAO, windowShader, windows, windowTexture);
-
+        
+        /*//DEBUG
+        // рендеринг на плоскости карты глубины для наглядной отладки
+        // ---------------------------------------------
+        debugDepthQuad.Use();
+        debugDepthQuad.setFloat("near_plane", near_plane);
+        debugDepthQuad.setFloat("far_plane", far_plane);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, shadowMap);
+        renderQuad();
+        */
         glfwSwapBuffers(window);
     }
 

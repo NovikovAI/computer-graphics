@@ -91,5 +91,11 @@
     <None Include="..\shaders\shadow_mapping.frag">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="..\shaders\3.1.3.debug_quad.ver">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\3.1.3.debug_quad.frag">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
 </Project>

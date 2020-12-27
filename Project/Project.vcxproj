@@ -159,6 +159,8 @@
     <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\shaders\3.1.3.debug_quad.frag" />
+    <None Include="..\shaders\3.1.3.debug_quad.ver" />
     <None Include="..\shaders\default.frag" />
     <None Include="..\shaders\default.ver" />
     <None Include="..\shaders\lamp.frag" />
