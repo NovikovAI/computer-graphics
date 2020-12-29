@@ -44,8 +44,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     {
         if (action == GLFW_PRESS) {
             keys[key] = true;
-            if (key == GLFW_KEY_F)
-                globalSpotlightSwitch = !globalSpotlightSwitch;     //DAMN CRUTCH
+            //if (key == GLFW_KEY_F)
+            //    globalSpotlightSwitch = !globalSpotlightSwitch;     //DAMN CRUTCH
         }
         else if (action == GLFW_RELEASE)
             keys[key] = false;
@@ -200,7 +200,7 @@ void drawNMap(const glm::mat4 projectionMat, const unsigned int nMapVAO, Shader 
     shader.setMat4("projectionMat", projectionMat);
     shader.setMat4("viewMat", viewMat);
     glm::mat4 modelMat = glm::mat4(1.0f);
-    modelMat = glm::translate(modelMat, glm::vec3(3.0f, 0.5f, 2.0f));
+    modelMat = glm::translate(modelMat, glm::vec3(5.0f, 0.5f, 2.0f));
     modelMat = glm::rotate(modelMat, glm::radians((float)glfwGetTime() * -10.0f), glm::normalize(glm::vec3(1.0, 0.0, 1.0)));
     modelMat = glm::scale(modelMat, glm::vec3(0.7f));
     shader.setMat4("modelMat", modelMat);
@@ -214,6 +214,32 @@ void drawNMap(const glm::mat4 projectionMat, const unsigned int nMapVAO, Shader 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, normalMap);
     glBindVertexArray(nMapVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+}
+
+void drawParallax(const glm::mat4 projectionMat, const unsigned int parallaxVAO, Shader shader, const unsigned int diffuseMap,
+    const unsigned int normalMap, const unsigned int heightMap)
+{
+    glm::mat4 viewMat = camera.GetViewMatrix();
+    shader.Use();
+    shader.setMat4("projectionMat", projectionMat);
+    shader.setMat4("viewMat", viewMat);
+    glm::mat4 modelMat = glm::mat4(1.0f);
+    modelMat = glm::translate(modelMat, glm::vec3(5.0f, 0.5f, 0.0f));
+    modelMat = glm::rotate(modelMat, glm::radians(sin((float)glfwGetTime()) * 10.0f + 90.0f), glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
+    modelMat = glm::scale(modelMat, glm::vec3(0.7f));
+    shader.setMat4("modelMat", modelMat);
+    shader.setVec3("viewPos", camera.Position);
+    shader.setVec3("lightPos", -directLightPos);
+    shader.setFloat("heightScale", 0.1f);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, diffuseMap);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, normalMap);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, heightMap);
+    glBindVertexArray(parallaxVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
 }
@@ -397,15 +423,24 @@ void drawSceneForShadows(Shader shader, const unsigned int planeVAO, const unsig
     glBindVertexArray(0);
     //and normal mapping
     modelMat = glm::mat4(1.0f);
-    modelMat = glm::translate(modelMat, glm::vec3(3.0f, 0.5f, 2.0f));
+    modelMat = glm::translate(modelMat, glm::vec3(5.0f, 0.5f, 2.0f));
     modelMat = glm::rotate(modelMat, glm::radians((float)glfwGetTime() * -10.0f), glm::normalize(glm::vec3(1.0, 0.0, 1.0)));
     modelMat = glm::scale(modelMat, glm::vec3(0.7f));
     shader.setMat4("modelMat", modelMat);
     glBindVertexArray(nMapVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
+    //and parallax mapping
+    modelMat = glm::mat4(1.0f);
+    modelMat = glm::translate(modelMat, glm::vec3(5.0f, 0.5f, 0.0f));
+    modelMat = glm::rotate(modelMat, glm::radians(sin((float)glfwGetTime()) * 10.0f + 90.0f), glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
+    modelMat = glm::scale(modelMat, glm::vec3(0.7f));
+    shader.setMat4("modelMat", modelMat);
+    glBindVertexArray(nMapVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 }
-/*
+/**/
 unsigned int quadVAO = 0;
 unsigned int quadVBO;
 void renderQuad()
@@ -432,7 +467,7 @@ void renderQuad()
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
-}*/
+}
 //=====================================================================================================================================================================================================
 
 int main()
@@ -492,7 +527,8 @@ int main()
     //Shader refractionShader("../shaders/refractionCube.ver", "../shaders/refractionCube.frag");
     Shader simpleDepthShader("../shaders/shadow_mapping.ver", "../shaders/shadow_mapping.frag");
     Shader nMapShader("../shaders/normal_mapping.ver", "../shaders/normal_mapping.frag");
-    //Shader debugDepthQuad("../shaders/3.1.3.debug_quad.ver", "../shaders/3.1.3.debug_quad.frag");    //DEBUG
+    Shader parallaxShader("../shaders/parallax.ver", "../shaders/parallax.frag");
+    Shader debugDepthQuad("../shaders/3.1.3.debug_quad.ver", "../shaders/3.1.3.debug_quad.frag");    //DEBUG
 
     float skyboxVertices[] = {
     -1.0f,  1.0f, -1.0f,
@@ -614,7 +650,7 @@ int main()
         //glm::vec3(-1.7f,  3.0f, -7.5f),
         glm::vec3(1.3f, -2.0f, -2.5f),
         glm::vec3(1.5f,  2.0f, -2.5f),
-        glm::vec3(1.5f,  0.7f, 0.0f),
+        glm::vec3(1.5f,  1.2f, 0.5f),
         glm::vec3(-1.3f,  1.0f, -1.5f)
     };
     //and lights
@@ -628,7 +664,7 @@ int main()
     std::vector<glm::vec3> windows
     {
         glm::vec3(-1.9f, 1.3f, 0.48f),
-        glm::vec3(1.0f, 2.0f, 0.51f),
+        glm::vec3(1.0f, 2.5f, 0.51f),
         glm::vec3(-0.7f, 1.5f, 1.0f)
     };
     //skybox locatoins and load
@@ -751,10 +787,12 @@ int main()
     tangent1.x = nMapf * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
     tangent1.y = nMapf * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
     tangent1.z = nMapf * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+    tangent1 = glm::normalize(tangent1);
 
     bitangent1.x = nMapf * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
     bitangent1.y = nMapf * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
     bitangent1.z = nMapf * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+    bitangent1 = glm::normalize(bitangent1);
 
     // треугольник 2
     // ----------
@@ -768,12 +806,12 @@ int main()
     tangent2.x = nMapf * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
     tangent2.y = nMapf * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
     tangent2.z = nMapf * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-
+    tangent2 = glm::normalize(tangent2);
 
     bitangent2.x = nMapf * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
     bitangent2.y = nMapf * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
     bitangent2.z = nMapf * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
-
+    bitangent2 = glm::normalize(bitangent2);
 
     float quadVertices[] = {
         // координаты                       // нормали                          // текст. координаты  // касательные                      // бикасательные
@@ -830,6 +868,9 @@ int main()
     unsigned int windowTexture = loadTexture("../textures/window.png");
     unsigned int nMapDiffuseMap = loadTexture("../textures/brickwall.jpg");
     unsigned int nMapNormalMap = loadTexture("../textures/brickwall_normal.jpg");
+    unsigned int parallaxDiffuse = loadTexture("../textures/toy_box_diffuse.png");
+    unsigned int parallaxNormal = loadTexture("../textures/toy_box_normal.png");
+    unsigned int parallaxHeight = loadTexture("../textures/toy_box_disp.png");
 
     //we need to set up proper texture unit
     myShader.Use();
@@ -844,6 +885,10 @@ int main()
     nMapShader.Use();
     nMapShader.setInt("diffuseMap", 0);
     nMapShader.setInt("normalMap", 1);
+    parallaxShader.Use();
+    parallaxShader.setInt("diffuseMap", 0);
+    parallaxShader.setInt("normalMap", 1);
+    parallaxShader.setInt("depthMap", 2);
 
     glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done to not F up
 
@@ -917,7 +962,7 @@ int main()
         glm::mat4 lightSpaceMatrix;
         float near_plane = 1.0f, far_plane = 20.0f;
         //lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane); // обратите внимание, что если вы используете матрицу перспективной проекции, вам придется изменить положение света, так как текущего положения света недостаточно для отображения всей сцены
-        lightProjection = glm::ortho(-10.0f, 20.0f, -10.0f, 20.0f, near_plane, far_plane);
+        lightProjection = glm::ortho(-15.0f, 20.0f, -15.0f, 20.0f, near_plane, far_plane);
         lightView = glm::lookAt(-directLightPos, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
         lightSpaceMatrix = lightProjection * lightView;
         
@@ -951,6 +996,7 @@ int main()
 
         drawFloor(projectionMat, planeVAO, myShader, floorTexture);
         drawNMap(projectionMat, nMapVAO, nMapShader, nMapDiffuseMap, nMapNormalMap);
+        drawParallax(projectionMat, nMapVAO, parallaxShader, parallaxDiffuse, parallaxNormal, parallaxHeight);
         drawCubesAndOutline(projectionMat, containerVAO, myShader, outlineShader, cubePositions, diffuseMap, specularMap, emissionMap);
         if (showLampsAndTheirLight)
             drawLamps(projectionMat, lightVAO, lampShader, pointLightPositions, ambientColor, diffuseColor);

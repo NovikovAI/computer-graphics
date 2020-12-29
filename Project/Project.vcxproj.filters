@@ -103,5 +103,11 @@
     <None Include="..\shaders\normal_mapping.frag">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="..\shaders\parallax.ver">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="..\shaders\parallax.frag">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
 </Project>
