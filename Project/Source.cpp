@@ -66,9 +66,9 @@ void do_movements(){
                                                         //constructor so this is VERY bad thing to
                                                         //do(also known as THE CRUTCH)
     }
-    if (keys[GLFW_KEY_L]) {
+    /*if (keys[GLFW_KEY_L]) {
         camera = Camera(-directLightPos);
-    }
+    }*/
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
