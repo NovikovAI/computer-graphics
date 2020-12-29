@@ -16,7 +16,7 @@
 
 //====================GLOBAL==========================
 // Window dimensions
-const GLuint WIDTH = 800, HEIGHT = 600;
+const GLuint WIDTH = 1280, HEIGHT = 960;
 //keyboard related
 bool keys[1024];
 //camera related
@@ -26,6 +26,7 @@ GLfloat lastY = (GLfloat)HEIGHT / 2.0;
 bool firstMouse = true;
 //lighting
 glm::vec3 directLightPos(-11.0f, -2.0f, -5.0f);
+glm::vec3 mirrorCubePos(-2.5f, 1.5f, 2.0f);
 bool globalSpotlightSwitch = false;
 bool showLampsAndTheirLight = false;
 const int numberOfPointLights = 2;
@@ -192,6 +193,31 @@ void drawFloor(const glm::mat4 projectionMat, const unsigned int planeVAO, Shade
     glStencilMask(0xFF);
 }
 
+void drawNMap(const glm::mat4 projectionMat, const unsigned int nMapVAO, Shader shader, const unsigned int diffuseMap, const unsigned int normalMap)
+{
+    glm::mat4 viewMat = camera.GetViewMatrix();
+    shader.Use();
+    shader.setMat4("projectionMat", projectionMat);
+    shader.setMat4("viewMat", viewMat);
+    glm::mat4 modelMat = glm::mat4(1.0f);
+    modelMat = glm::translate(modelMat, glm::vec3(3.0f, 0.5f, 2.0f));
+    modelMat = glm::rotate(modelMat, glm::radians((float)glfwGetTime() * -10.0f), glm::normalize(glm::vec3(1.0, 0.0, 1.0)));
+    modelMat = glm::scale(modelMat, glm::vec3(0.7f));
+    shader.setMat4("modelMat", modelMat);
+    shader.setVec3("viewPos", camera.Position);
+    shader.setVec3("lightPos", -directLightPos);
+    //shader.setVec3("lightAmbient", glm::vec3(0.05f));
+    //shader.setVec3("lightDiffuse", glm::vec3(0.7f));
+    //shader.setVec3("lightSpecular", glm::vec3(1.0f));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, diffuseMap);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, normalMap);
+    glBindVertexArray(nMapVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+}
+
 void drawCubesAndOutline(const glm::mat4 projectionMat, const unsigned int containerVAO, Shader myShader, Shader outlineShader, glm::vec3* cubePositions,
     const unsigned int diffuseMap, const unsigned int specularMap, const unsigned int emissionMap)
 {
@@ -294,7 +320,8 @@ void drawSkyboxAndMirrorCube(const glm::mat4 projectionMat, const unsigned int s
     //draw mirror cube
     mirrorShader.Use();
     glm::mat4 mirrorModelMat = glm::mat4(1.0f);
-    mirrorModelMat = glm::translate(mirrorModelMat, glm::vec3(-5.0f, 3.0f, 1.0f));
+    mirrorModelMat = glm::translate(mirrorModelMat, mirrorCubePos);
+    mirrorModelMat = glm::rotate(mirrorModelMat, glm::radians((float)glfwGetTime() * 20.0f), glm::normalize(glm::vec3(-1.0, 1.0, -1.0)));
     mirrorModelMat = glm::scale(mirrorModelMat, glm::vec3(0.7f));
     mirrorShader.setMat4("modelMat", mirrorModelMat);
     mirrorShader.setMat4("viewMat", viewMat);
@@ -314,18 +341,20 @@ void drawWindows(const glm::mat4 projectionMat, const unsigned int transparentVA
     glm::mat4 modelMat = glm::mat4(1.0f);
 
     //sorting windows by distance
-    std::map<float, glm::vec3> sortedWindows;
+    std::multimap<float, glm::vec3> sortedWindows;
     for (unsigned int i = 0; i < windows.size(); i++)
     {
         float distance = glm::length(camera.Position - windows[i]);
-        sortedWindows[distance] = windows[i];
+        sortedWindows.insert(std::make_pair(distance, windows[i]));
     }
+
 
     //draw windows
     windowShader.Use();
     glBindVertexArray(transparentVAO);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, windowTexture);
+    //windowShader.setVec3("cameraPos", camera.Position);
     windowShader.setMat4("viewMat", viewMat);
     windowShader.setMat4("projectionMat", projectionMat);
     for (std::map<float, glm::vec3>::reverse_iterator it = sortedWindows.rbegin(); it != sortedWindows.rend(); ++it)
@@ -338,7 +367,8 @@ void drawWindows(const glm::mat4 projectionMat, const unsigned int transparentVA
     glBindVertexArray(0);
 }
 
-void drawSceneForShadows(Shader shader, const unsigned int planeVAO, const unsigned int containerVAO, glm::vec3 *cubePositions)
+void drawSceneForShadows(Shader shader, const unsigned int planeVAO, const unsigned int containerVAO, const unsigned int mirrorVAO,
+    const unsigned int nMapVAO, glm::vec3 *cubePositions)
 {
     //we will only need our floor
     glm::mat4 modelMat = glm::mat4(1.0f);
@@ -355,6 +385,24 @@ void drawSceneForShadows(Shader shader, const unsigned int planeVAO, const unsig
         shader.setMat4("modelMat", modelMat);
         glDrawArrays(GL_TRIANGLES, 0, 36);
     }
+    glBindVertexArray(0);
+    //and mirror cube
+    glm::mat4 mirrorModelMat = glm::mat4(1.0f);
+    mirrorModelMat = glm::translate(mirrorModelMat, mirrorCubePos);
+    mirrorModelMat = glm::rotate(mirrorModelMat, glm::radians((float)glfwGetTime() * 20.0f), glm::normalize(glm::vec3(-1.0, 1.0, -1.0)));
+    mirrorModelMat = glm::scale(mirrorModelMat, glm::vec3(0.7f));
+    shader.setMat4("modelMat", mirrorModelMat);
+    glBindVertexArray(mirrorVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    //and normal mapping
+    modelMat = glm::mat4(1.0f);
+    modelMat = glm::translate(modelMat, glm::vec3(3.0f, 0.5f, 2.0f));
+    modelMat = glm::rotate(modelMat, glm::radians((float)glfwGetTime() * -10.0f), glm::normalize(glm::vec3(1.0, 0.0, 1.0)));
+    modelMat = glm::scale(modelMat, glm::vec3(0.7f));
+    shader.setMat4("modelMat", modelMat);
+    glBindVertexArray(nMapVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
 }
 /*
@@ -441,7 +489,9 @@ int main()
     Shader windowShader("../shaders/window.ver", "../shaders/window.frag");
     Shader skyboxShader("../shaders/skybox.ver", "../shaders/skybox.frag");
     Shader mirrorShader("../shaders/mirrorCube.ver", "../shaders/mirrorCube.frag");
+    //Shader refractionShader("../shaders/refractionCube.ver", "../shaders/refractionCube.frag");
     Shader simpleDepthShader("../shaders/shadow_mapping.ver", "../shaders/shadow_mapping.frag");
+    Shader nMapShader("../shaders/normal_mapping.ver", "../shaders/normal_mapping.frag");
     //Shader debugDepthQuad("../shaders/3.1.3.debug_quad.ver", "../shaders/3.1.3.debug_quad.frag");    //DEBUG
 
     float skyboxVertices[] = {
@@ -535,13 +585,13 @@ int main()
 
     float planeVertices[] = {
         //Coordinates         //TextureCoord    //Normals
-         5.0f, -0.5f,  5.0f,   2.0f, 0.0f,     0.0f, 1.0f, 0.0f,
-        -5.0f, -0.5f, -5.0f,   0.0f, 2.0f,     0.0f, 1.0f, 0.0f,
-        -5.0f, -0.5f,  5.0f,   0.0f, 0.0f,     0.0f, 1.0f, 0.0f,
+         10.0f, -0.5f,  10.0f,   10.0f, 0.0f,     0.0f, 1.0f, 0.0f,
+        -10.0f, -0.5f, -10.0f,   0.0f, 10.0f,     0.0f, 1.0f, 0.0f,
+        -10.0f, -0.5f,  10.0f,   0.0f,  0.0f,     0.0f, 1.0f, 0.0f,
 
-         5.0f, -0.5f,  5.0f,   2.0f, 0.0f,     0.0f, 1.0f, 0.0f,
-         5.0f, -0.5f, -5.0f,   2.0f, 2.0f,     0.0f, 1.0f, 0.0f,
-        -5.0f, -0.5f, -5.0f,   0.0f, 2.0f,     0.0f, 1.0f, 0.0f
+         10.0f, -0.5f,  10.0f,   10.0f, 0.0f,     0.0f, 1.0f, 0.0f,
+         10.0f, -0.5f, -10.0f,   10.0f,10.0f,     0.0f, 1.0f, 0.0f,
+        -10.0f, -0.5f, -10.0f,   0.0f, 10.0f,     0.0f, 1.0f, 0.0f
     };
 
     float transparentVertices[] = {
@@ -577,8 +627,9 @@ int main()
     //and windows
     std::vector<glm::vec3> windows
     {
-        glm::vec3(-1.5f, 1.3f, -0.48f),
-        glm::vec3(1.5f, 3.0f, 0.51f),
+        glm::vec3(-1.9f, 1.3f, 0.48f),
+        glm::vec3(1.0f, 2.0f, 0.51f),
+        glm::vec3(-0.7f, 1.5f, 1.0f)
     };
     //skybox locatoins and load
     std::vector<std::string> skyboxFaces
@@ -658,7 +709,7 @@ int main()
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
     
-    //for mirror cubes
+    //for mirror and refraction cubes
     unsigned int mirrorVAO;
     glGenVertexArrays(1, &mirrorVAO);
     glBindVertexArray(mirrorVAO);
@@ -669,9 +720,91 @@ int main()
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+    
+    //for normal mapping
+    unsigned int nMapVAO, nMapVBO;
+    // координаты
+    glm::vec3 nMapPos1(-1.0f, 1.0f, 0.0f);
+    glm::vec3 nMapPos2(-1.0f, -1.0f, 0.0f);
+    glm::vec3 nMapPos3(1.0f, -1.0f, 0.0f);
+    glm::vec3 nMapPos4(1.0f, 1.0f, 0.0f);
+    // текстурные координаты
+    glm::vec2 nMapuv1(0.0f, 1.0f);
+    glm::vec2 nMapuv2(0.0f, 0.0f);
+    glm::vec2 nMapuv3(1.0f, 0.0f);
+    glm::vec2 nMapuv4(1.0f, 1.0f);
+    // вектор нормали
+    glm::vec3 nMapNorm(0.0f, 0.0f, 1.0f);
+
+    // вычисляем касательные/бикасательные векторы обоих треугольников
+    glm::vec3 tangent1, bitangent1;
+    glm::vec3 tangent2, bitangent2;
+    // треугольник 1
+    // ----------
+    glm::vec3 edge1 = nMapPos2 - nMapPos1;
+    glm::vec3 edge2 = nMapPos3 - nMapPos1;
+    glm::vec2 deltaUV1 = nMapuv2 - nMapuv1;
+    glm::vec2 deltaUV2 = nMapuv3 - nMapuv1;
+
+    float nMapf = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+    tangent1.x = nMapf * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+    tangent1.y = nMapf * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+    tangent1.z = nMapf * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+    bitangent1.x = nMapf * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+    bitangent1.y = nMapf * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+    bitangent1.z = nMapf * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+
+    // треугольник 2
+    // ----------
+    edge1 = nMapPos3 - nMapPos1;
+    edge2 = nMapPos4 - nMapPos1;
+    deltaUV1 = nMapuv3 - nMapuv1;
+    deltaUV2 = nMapuv4 - nMapuv1;
+
+    nMapf = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+    tangent2.x = nMapf * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+    tangent2.y = nMapf * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+    tangent2.z = nMapf * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+
+    bitangent2.x = nMapf * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+    bitangent2.y = nMapf * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+    bitangent2.z = nMapf * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+
+
+    float quadVertices[] = {
+        // координаты                       // нормали                          // текст. координаты  // касательные                      // бикасательные
+        nMapPos1.x, nMapPos1.y, nMapPos1.z, nMapNorm.x, nMapNorm.y, nMapNorm.z, nMapuv1.x, nMapuv1.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
+        nMapPos2.x, nMapPos2.y, nMapPos2.z, nMapNorm.x, nMapNorm.y, nMapNorm.z, nMapuv2.x, nMapuv2.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
+        nMapPos3.x, nMapPos3.y, nMapPos3.z, nMapNorm.x, nMapNorm.y, nMapNorm.z, nMapuv3.x, nMapuv3.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
+
+        nMapPos1.x, nMapPos1.y, nMapPos1.z, nMapNorm.x, nMapNorm.y, nMapNorm.z, nMapuv1.x, nMapuv1.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
+        nMapPos3.x, nMapPos3.y, nMapPos3.z, nMapNorm.x, nMapNorm.y, nMapNorm.z, nMapuv3.x, nMapuv3.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
+        nMapPos4.x, nMapPos4.y, nMapPos4.z, nMapNorm.x, nMapNorm.y, nMapNorm.z, nMapuv4.x, nMapuv4.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z
+    };
+    glGenVertexArrays(1, &nMapVAO);
+    glGenBuffers(1, &nMapVBO);
+    glBindVertexArray(nMapVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, nMapVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(11 * sizeof(float)));
+    glEnableVertexAttribArray(4);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     //framebuffer for shadows
-    const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+    const unsigned int SHADOW_WIDTH = 1280, SHADOW_HEIGHT = 1280;
     unsigned int shadowMapFBO;
     glGenFramebuffers(1, &shadowMapFBO);
     unsigned int shadowMap;
@@ -695,6 +828,8 @@ int main()
     unsigned int emissionMap = loadTexture("../textures/matrix.jpg");
     unsigned int floorTexture = loadTexture("../textures/metal_floor.jpg");
     unsigned int windowTexture = loadTexture("../textures/window.png");
+    unsigned int nMapDiffuseMap = loadTexture("../textures/brickwall.jpg");
+    unsigned int nMapNormalMap = loadTexture("../textures/brickwall_normal.jpg");
 
     //we need to set up proper texture unit
     myShader.Use();
@@ -706,6 +841,9 @@ int main()
     windowShader.setInt("windowTexture", 0);
     skyboxShader.Use();
     skyboxShader.setInt("skybox", 0);
+    nMapShader.Use();
+    nMapShader.setInt("diffuseMap", 0);
+    nMapShader.setInt("normalMap", 1);
 
     glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done to not F up
 
@@ -791,20 +929,28 @@ int main()
         glClear(GL_DEPTH_BUFFER_BIT);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, 0);
-        drawSceneForShadows(simpleDepthShader, planeVAO, containerVAO, cubePositions);
+        drawSceneForShadows(simpleDepthShader, planeVAO, containerVAO, mirrorVAO, nMapVAO, cubePositions);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         //then we draw the scene normally
         
         glViewport(0, 0, WIDTH, HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
+        
         myShader.Use();
         myShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, shadowMap);
 
+        /* nevermind that, just an idea
+        nMapShader.Use();
+        nMapShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, shadowMap);
+        */
+
         drawFloor(projectionMat, planeVAO, myShader, floorTexture);
+        drawNMap(projectionMat, nMapVAO, nMapShader, nMapDiffuseMap, nMapNormalMap);
         drawCubesAndOutline(projectionMat, containerVAO, myShader, outlineShader, cubePositions, diffuseMap, specularMap, emissionMap);
         if (showLampsAndTheirLight)
             drawLamps(projectionMat, lightVAO, lampShader, pointLightPositions, ambientColor, diffuseColor);
