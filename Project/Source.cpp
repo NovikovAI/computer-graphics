@@ -323,7 +323,7 @@ void drawLamps(const glm::mat4 projectionMat, const unsigned int lightVAO, Shade
     glBindVertexArray(0);
 }
 
-void drawSkyboxAndMirrorCube(const glm::mat4 projectionMat, const unsigned int skyboxVAO, const unsigned int mirrorVAO, Shader skyboxShader, Shader mirrorShader,
+void drawSkyboxAndCubes(const glm::mat4 projectionMat, const unsigned int skyboxVAO, const unsigned int mirrorVAO, Shader skyboxShader, Shader mirrorShader,
     const unsigned int cubemapTexture)
 {
     glm::mat4 viewMat = glm::mat4(1.0f);
@@ -353,6 +353,23 @@ void drawSkyboxAndMirrorCube(const glm::mat4 projectionMat, const unsigned int s
     mirrorShader.setMat4("viewMat", viewMat);
     mirrorShader.setMat4("projectionMat", projectionMat);
     mirrorShader.setVec3("cameraPos", camera.Position);
+    mirrorShader.setBool("refractFlag", false);
+    glBindVertexArray(mirrorVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+
+    mirrorShader.Use();
+    mirrorModelMat = glm::mat4(1.0f);
+    mirrorModelMat = glm::translate(mirrorModelMat, mirrorCubePos + glm::vec3(0.0f, 1.0f, 1.0f));
+    mirrorModelMat = glm::rotate(mirrorModelMat, glm::radians((float)glfwGetTime() * 20.0f), glm::normalize(glm::vec3(-1.0, 1.0, -1.0)));
+    mirrorModelMat = glm::scale(mirrorModelMat, glm::vec3(0.7f));
+    mirrorShader.setMat4("modelMat", mirrorModelMat);
+    mirrorShader.setMat4("viewMat", viewMat);
+    mirrorShader.setMat4("projectionMat", projectionMat);
+    mirrorShader.setVec3("cameraPos", camera.Position);
+    mirrorShader.setBool("refractFlag", true);
     glBindVertexArray(mirrorVAO);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
@@ -421,6 +438,15 @@ void drawSceneForShadows(Shader shader, const unsigned int planeVAO, const unsig
     glBindVertexArray(mirrorVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
+    //and refraction cube
+    mirrorModelMat = glm::mat4(1.0f);
+    mirrorModelMat = glm::translate(mirrorModelMat, mirrorCubePos + glm::vec3(0.0f, 1.0f, 1.0f));
+    mirrorModelMat = glm::rotate(mirrorModelMat, glm::radians((float)glfwGetTime() * 20.0f), glm::normalize(glm::vec3(-1.0, 1.0, -1.0)));
+    mirrorModelMat = glm::scale(mirrorModelMat, glm::vec3(0.7f));
+    shader.setMat4("modelMat", mirrorModelMat);
+    glBindVertexArray(mirrorVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
     //and normal mapping
     modelMat = glm::mat4(1.0f);
     modelMat = glm::translate(modelMat, glm::vec3(5.0f, 0.5f, 2.0f));
@@ -440,7 +466,7 @@ void drawSceneForShadows(Shader shader, const unsigned int planeVAO, const unsig
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
 }
-/**/
+/*
 unsigned int quadVAO = 0;
 unsigned int quadVBO;
 void renderQuad()
@@ -467,7 +493,7 @@ void renderQuad()
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
-}
+}*/
 //=====================================================================================================================================================================================================
 
 int main()
@@ -528,7 +554,7 @@ int main()
     Shader simpleDepthShader("../shaders/shadow_mapping.ver", "../shaders/shadow_mapping.frag");
     Shader nMapShader("../shaders/normal_mapping.ver", "../shaders/normal_mapping.frag");
     Shader parallaxShader("../shaders/parallax.ver", "../shaders/parallax.frag");
-    Shader debugDepthQuad("../shaders/3.1.3.debug_quad.ver", "../shaders/3.1.3.debug_quad.frag");    //DEBUG
+    //Shader debugDepthQuad("../shaders/3.1.3.debug_quad.ver", "../shaders/3.1.3.debug_quad.frag");    //DEBUG
 
     float skyboxVertices[] = {
     -1.0f,  1.0f, -1.0f,
@@ -1000,7 +1026,7 @@ int main()
         drawCubesAndOutline(projectionMat, containerVAO, myShader, outlineShader, cubePositions, diffuseMap, specularMap, emissionMap);
         if (showLampsAndTheirLight)
             drawLamps(projectionMat, lightVAO, lampShader, pointLightPositions, ambientColor, diffuseColor);
-        drawSkyboxAndMirrorCube(projectionMat, skyboxVAO, mirrorVAO, skyboxShader, mirrorShader, cubemapTexture);
+        drawSkyboxAndCubes(projectionMat, skyboxVAO, mirrorVAO, skyboxShader, mirrorShader, cubemapTexture);
         drawWindows(projectionMat, transparentVAO, windowShader, windows, windowTexture);
         
         /*//DEBUG
